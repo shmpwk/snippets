@@ -15,30 +15,6 @@ class Sub_PR2(PR2):
     def __init__(self, *args, **kwargs):
         super(Sub_PR2, self).__init__(*args, **kwargs)
     def init_pose(self):
-        #self.l_shoulder_pan_joint.joint_angle.joint_angle(np.deg2rad(299.865))
-        self.l_shoulder_pan_joint.joint_angle.joint_angle(np.deg2rad(121.865))
-        self.l_shoulder_lift_joint(np.deg2rad(55.4297))
-        self.l_upper_arm_roll_joint.joint_angle(np.deg2rad(53.3196))
-        #self.l_elbow_flex_joint.joint_angle(np.deg2rad(102.662))
-        self.l_elbow_flex_joint.joint_angle(np.deg2rad(-10))
-        self.l_forearm_roll_joint.joint_angle(np.deg2rad(-121.542))
-        #self.l_wrist_flex_joint.joint_angle(np.deg2rad(125.071))
-        self.l_wrist_flex_joint.joint_angle(np.deg2rad(-10.071))
-        self.l_wrist_roll_joint.joint_angle(np.deg2rad(-87.0418))
-        self.r_shoulder_pan_joint.joint_angle(np.deg2rad(-48.2131))
-        self.r_shoulder_lift_joint.joint_angle(np.deg2rad(-32.0168))
-        self.r_upper_arm_roll_joint.joint_angle(np.deg2rad(-20.2598))
-        #self.r_elbow_flex_joint.joint_angle(np.deg2rad(-67.6931))
-        self.r_elbow_flex_joint.joint_angle(np.deg2rad(-67.6931))
-        self.r_forearm_roll_joint.joint_angle(np.deg2rad(-45.3044))
-        #self.r_wrist_flex_joint.joint_angle(np.deg2rad(-72.9084))
-        self.r_wrist_flex_joint.joint_angle(np.deg2rad(-72.9084))
-        self.r_wrist_roll_joint.joint_angle(np.deg2rad(-96.2568))
-        #self.torso_lift_joint.joint_angle(np.deg2rad(-100.018))
-        self.torso_lift_joint.joint_angle(np.deg2rad(100.018))
-        self.head_pan_joint.joint_angle(np.deg2rad(4.1047))
-        self.head_tilt_joint.joint_angle(np.deg2rad(54.75))
-        """
         self.torso_lift_joint.joint_angle(np.deg2rad(299.865))
         self.l_shoulder_pan_joint.joint_angle(np.deg2rad(55.4297))
         self.l_shoulder_lift_joint.joint_angle(np.deg2rad(53.3196))
@@ -56,7 +32,6 @@ class Sub_PR2(PR2):
         self.r_wrist_roll_joint.joint_angle(np.deg2rad(-100.018))
         self.head_pan_joint.joint_angle(np.deg2rad(4.1047))
         self.head_tilt_joint.joint_angle(np.deg2rad(54.75))
-        """
         return self.angle_vector()
 #robot_model.angle_vector([299.865, 55.4297, 53.3196, 102.662, -121.542, 125.071, -87.0418, -48.2131, -32.0168, -20.2598, -67.6931, -45.3044, -72.9084, -96.2568, -100.018, 4.1047, 54.75])
     def reset_pose_2(self):
@@ -118,7 +93,10 @@ print('==> Moving to Reset Pose')
 #robot_model.reset_manip_pose()
 #print(robot_model.init_pose())
 #print(robot_model.reset_manip_pose())
-#Sub_PR2.init_pose
+ins = Sub_PR2()
+ins.init_pose()
+interface.angle_vector(ins.angle_vector(), realtime_simulation=True)
+interface.wait_interpolation()
 
 #robot_model.angle_vector([299.865, 55.4297, 53.3196, 102.662, -121.542, 125.071, -87.0418, -48.2131, -32.0168, -20.2598, -67.6931, -45.3044, -72.9084, -96.2568, -100.018, 4.1047, 54.75])
 #interface.angle_vector(robot_model.angle_vector(), realtime_simulation=True)
@@ -128,21 +106,33 @@ print('==> Moving to Reset Pose')
 #interface.wait_interpolation()
 #interface.angle_vector(robot_model.reset_manip_pose())
 
-"""
+
 # ik
 print('==> Solving Inverse Kinematics')
+
 target_coords = skrobot.coordinates.Coordinates(
     pos=[-0.3, 0.4, 0.5]
 ).rotate(np.pi / 2.0, 'y', 'local')
 skrobot.interfaces.pybullet.draw(target_coords)
-robot_model.inverse_kinematics(
-    target_coords,
+ins.inverse_kinematics(
+    target_coords.copy_worldcoords(),
     link_list=robot_model.rarm.link_list,
     move_target=robot_model.rarm_end_coords,
     rotation_axis=True,
     stop=1000,
 )
-interface.angle_vector(robot_model.angle_vector(), realtime_simulation=True)
+"""
+target_coords = skrobot.coordinates.Coordinates([0.5, -0.2, 0.7], [0, 0, 0])
+
+ins.inverse_kinematics(
+    target_coords,
+    link_list=ins.rarm.link_list,
+    move_target=ins.rarm_end_coords,
+    rotation_axis=True,
+    stop=1000,
+)
+"""
+interface.angle_vector(ins.angle_vector(), realtime_simulation=True)
 interface.wait_interpolation()
 
 # wait
@@ -150,4 +140,4 @@ while pb.isConnected():
     time.sleep(0.01)
 
 pb.disconnect()
-"""
+
