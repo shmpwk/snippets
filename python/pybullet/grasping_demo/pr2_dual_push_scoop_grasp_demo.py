@@ -33,7 +33,7 @@ class Simulator(object):
         self.lgripper = LGripper()
         self.try_num = 100 #Simulator loop times
         self.frames = [] #Movie buffer
-        pb.resetDebugVisualizerCamera(2.0, 90, -0.0, (0.0, 0.0, 1.0))
+        pb.resetDebugVisualizerCamera(0.4, 90, -75, (0.25, 0.0, 1.0))
         
         # For pybullet getCameraImage argument
         self.viewMatrix = pb.computeViewMatrix(
