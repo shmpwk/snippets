@@ -87,7 +87,7 @@ class Simulator(object):
                     pitch = np.random.rand() * pi / 8 + pi / 8 
                     self.rgripper.set_state([-0.3, 0.5, 0]) #Success position
                     self.lgripper.set_state([-0.2, 0.1, 0]) #Success position
-                    for i in range(40):
+                    for i in range(50):
                         pb.stepSimulation()
                         
                         if len(pb.getContactPoints(bodyA=1, bodyB=3)): #Contact Rgripper and table
@@ -109,7 +109,7 @@ class Simulator(object):
                     pitch = np.random.rand() * pi / 8 + pi / 8 
                     self.rgripper.set_state([-0.3, 0.5, 0]) #Success position
                     self.lgripper.set_state([-0.2, 0.1, 0]) #Success position
-                    for i in range(100):
+                    for i in range(50):
                         pb.stepSimulation()
                         plate_pos = utils.get_point(self.plate) #Get target obj center position
                         if plate_pos[1] > -0.5:
