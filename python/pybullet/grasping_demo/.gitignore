@@ -2,3 +2,4 @@
 *.swo
 */meshes/*
 *.mp4
+*data/*
