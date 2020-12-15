@@ -5,7 +5,7 @@ import torch
 import os 
 
 class SimpleBuffer:
-    def __init__(self, buffer_size, state_shape, device=torch.device('cuda')):
+    def __init__(self, buffer_size, img_shape, state_shape, device=torch.device('cuda')):
         # GPU上に保存するデータ．
         self.states = torch.empty((buffer_size + 1, state_shape), dtype=torch.float, device=device)
         # 次にデータを挿入するインデックス．
@@ -18,6 +18,10 @@ class SimpleBuffer:
         torch.save({
             'state': self.states.clone().cpu(),
         }, path)
+
+    def get(self):
+        assert self._p == 0, 'Buffer needs to be full before training.'
+        return self.states
 
 """
 For PPO buffer
