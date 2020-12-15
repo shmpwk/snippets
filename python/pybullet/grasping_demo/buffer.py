@@ -53,7 +53,6 @@ class SimpleBuffer:
 For PPO buffer
 ここでは，状態・行動・即時報酬・終了シグナル・確率密度の対数をロールアウト1回分保存することとします．このとき，状態のみ1つ分多く保存することに注意します(GAEの計算では，1ステップ先の状態価値を計算する必要があるので)．
 
-"""
 class RolloutBuffer:
 
     def __init__(self, buffer_size, state_shape, action_shape, device=torch.device('cuda')):
@@ -143,3 +142,4 @@ class Buffer(SerializedBuffer):
             'done': self.dones.clone().cpu(),
             'next_state': self.next_states.clone().cpu(),
         }, path)
+"""
