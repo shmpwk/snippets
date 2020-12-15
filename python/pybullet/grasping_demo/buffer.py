@@ -3,25 +3,51 @@
 
 import torch
 import os 
+import datetime
 
 class SimpleBuffer:
-    def __init__(self, buffer_size, img_shape, state_shape, device=torch.device('cuda')):
+    def __init__(self, data_length, buffer_size, img_shape, state_shape, device=torch.device('cuda')):
         # GPU上に保存するデータ．
-        self.states = torch.empty((buffer_size + 1, state_shape), dtype=torch.float, device=device)
+        self.states = torch.empty((buffer_size, state_shape), dtype=torch.float, device=device)
+        #self.tmp_states = torch.empty((data_length, state_shape), dtype=torch.float, device=device)
         # 次にデータを挿入するインデックス．
         self._p = 0
+        self.data_length = data_length
+        self.buffer_size = buffer_size
 
     def append(self, state):
         self.states[self._p].copy_(torch.from_numpy(state))
+        self._p = (self._p + 1) % self.buffer_size
 
-    def save(self, path=os.path.join('data','buffer.pth')):
+    def save(self):
+        """
         torch.save({
             'state': self.states.clone().cpu(),
         }, path)
-
+        """
+        now = datetime.datetime.now()  
+        path = 'data/robot_data/robot_' + now.strftime('%Y%m%d_%H%M%S') + '.pth'
+        # GPU save
+        ## Save whole model
+        torch.save(self.states, path)
+        # CPU save
+        #torch.save(self.model.to('cpu').state_dict(), model_path)
+ 
     def get(self):
         assert self._p == 0, 'Buffer needs to be full before training.'
         return self.states
+
+    def delete(self):
+        self._p = self._p - self.data_length
+ 
+    # path should be set by parser
+    def load(self, path):
+        # learn GPU, load GPU
+        data = torch.load(path)
+        # learn CPU, load GPU
+        #self.model.load_state_dict(torch.load(path, map_location=torch.device('cpu')))
+        print(data.shape)
+        return data
 
 """
 For PPO buffer
