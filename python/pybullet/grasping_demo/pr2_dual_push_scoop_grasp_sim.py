@@ -33,7 +33,6 @@ class Simulator(object):
         print("plate ID", self.plate)
         self.rgripper = RGripper()
         self.lgripper = LGripper()
-        self.try_num = 3 #Simulator loop times
         self.frames = [] #Movie buffer
         self.d_frames = [] #Movie buffer
         pb.resetDebugVisualizerCamera(0.4, 90, -75, (0.25, 0.0, 1.0))
@@ -86,15 +85,16 @@ class Simulator(object):
             pb.stepSimulation()
         return tactics
 
-    def rollout(self, buffer_size, state_shape, device=torch.device('cuda')):
+    def rollout(self, data_length, try_num, buffer_size, state_shape, device=torch.device('cuda')):
         """
         State:
         rx, ry, lx, ly, rtheta, ltheta, rw, lw
         """
         try:
             # Make replay buffer on GPU
-            buffer = SimpleBuffer(buffer_size, 8, state_shape, device) 
-            for try_count in six.moves.range(self.try_num):
+            buffer = SimpleBuffer(try_num, buffer_size, 8, state_shape, device) 
+            try_count = 0
+            while (try_count != try_num):
                 tactics = self.reset()
                 # Get target obj state
                 plate_pos = utils.get_point(self.plate) #Get target obj center position
@@ -104,7 +104,7 @@ class Simulator(object):
                     pitch = np.random.rand() * pi / 8 + pi / 8 
                     self.rgripper.set_state([-0.3, 0.5, 0]) #Success position
                     self.lgripper.set_state([-0.2, 0.1, 0]) #Success position
-                    for i in range(50):
+                    for i in range(data_length):
                         pb.stepSimulation()
                         rw = 1
                         lw = 1
@@ -143,7 +143,7 @@ class Simulator(object):
                     ltheta = 0
                     self.rgripper.set_state([-0.3, 0.5, 0]) #Success position
                     self.lgripper.set_state([-0.2, 0.1, 0]) #Success position
-                    for i in range(50):
+                    for i in range(data_length):
                         pb.stepSimulation()
                         plate_pos = utils.get_point(self.plate) #Get target obj center position
                         if plate_pos[1] > -0.5:
@@ -200,8 +200,10 @@ class Simulator(object):
                     contact_len += len(pb.getContactPoints(bodyA=0, bodyB=2)) #Judge if plate and table collision
                 
                 if contact_len > 1: #Judge if gripper contact plate
+                    buffer.delete()
                     print("Failed!!!")
                 else:
+                    try_count += 1 
                     print("Succeeded!!!")
             save_video(self.frames, "sample.mp4")
             return buffer
@@ -213,10 +215,12 @@ if __name__ == '__main__':
     try:
         sim
     except:
-        BUFFER_SIZE = 10 ** 6
-        state_shape = 8 
+        try_num = 10 #Simulator loop times
+        data_length = 50
+        BUFFER_SIZE = try_num * data_length #10 ** 6
+        state_shape = 8
         sim = Simulator()
-        buffer = sim.rollout(BUFFER_SIZE, state_shape)
+        buffer = sim.rollout(data_length, try_num, BUFFER_SIZE, state_shape)
         buffer.save()
         pb.disconnect()
 
