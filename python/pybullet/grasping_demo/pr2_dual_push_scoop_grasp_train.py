@@ -136,9 +136,9 @@ def mkRandomBatch(train_x, train_t, batch_size=10):
 #        states = self.buffer.get()
 
 def main(path):
-    training_size = 10
-    test_size = 10
-    epochs_num = 10
+    training_size = 20
+    test_size = 20
+    epochs_num = 20
     input_size = 1 
     hidden_size = 8
     batch_size = 2
@@ -147,6 +147,9 @@ def main(path):
     test_x, test_t = mkDataSet(path, test_size)
 
     model = Predictor(8, hidden_size, 8)
+    encoder = Encoder(4, 64, 64)
+    decoder = Decoder(4, 64, 64)
+
     criterion = nn.MSELoss()
     optimizer = SGD(model.parameters(), lr=0.01)
 
