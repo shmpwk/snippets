@@ -182,8 +182,8 @@ class Encoder(nn.Module):
         hidden = self.dcv7(hidden)
         hidden = self.dcbn7(hidden)
         embedded_obs = hidden.reshape(hidden.size(0), -1) 
-        #return embedded_obs
-        return hidden
+        return embedded_obs
+        #return hidden
    
     def num_flat_features(self, x):
         size = x.size()[1:]  # all dimensions except the batch dimension
@@ -352,25 +352,21 @@ def main(path):
  
             rgb = rgb[:,data_length-1,:3,:,:].reshape(batch_size, 3, 128, 128)
             rgb_label = rgb_label[:,:3,:,:].reshape(batch_size, 3, 128, 128)
-            im_gray = 0.299 * rgb[:, 0, :, :] + 0.587 * rgb[:, 1, :, :] + 0.114 * rgb[:, 2, :, :].reshape(batch_size, 1, 128, 128)
-            im_gray_label = 0.299 * rgb_label[:, 0, :, :] + 0.587 * rgb_label[:, 1, :, :] + 0.114 * rgb_label[:, 2, :, :].reshape(batch_size, 1, 128, 128)
-
-            print(im_gray_label.shape)
+            im_gray = 0.299 * rgb[:, 0, :, :] + 0.587 * rgb[:, 1, :, :] + 0.114 * rgb[:, 2, :, :]
+            im_gray = im_gray.reshape(batch_size, 1, 128, 128)
+            im_gray_label = 0.299 * rgb_label[:, 0, :, :] + 0.587 * rgb_label[:, 1, :, :] + 0.114 * rgb_label[:, 2, :, :]
+            im_gray_label = im_gray_label.reshape(batch_size, 1, 128, 128)
             #im_gray_label = im_gray_label.reshape(batch_size, 1, 128, 128)
             encoding_gray = im_gray.to(device)
             encoding_gray_label = im_gray_label.to(device)
             encoding_depth = depth[:,data_length-1,:,:,:].reshape(batch_size, 1 , 128, 128)
-            print(encoding_gray_label.shape)
             #encoding_depth_label = depth_label[:,:,:,:].reshape(batch_size, 1*128*128)
             encoding_depth = encoding_depth.to(device)
             encoding_depth_label = encoding_depth.to(device)
             output = model(data).to(device)
             encoding_img = torch.cat([encoding_gray, encoding_depth], dim=1)
-            print(encoding_depth_label.shape)
-            print(encoding_gray_label.shape)
-            print("=============")
             encoding_img_label = torch.cat([encoding_gray_label, encoding_depth_label], dim=1).reshape(batch_size, 2*128*128)
-            encoded = encoder(encoding_img, output).reshape(hidden.size(0), -1)
+            encoded = encoder(encoding_img, output)#.reshape(hidden.size(0), -1)
 
             #encoded = encoded.reshape()
             #decoded = decoder(encoded)
