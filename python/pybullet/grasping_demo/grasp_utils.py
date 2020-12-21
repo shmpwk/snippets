@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import moviepy.editor as mpy
+from base64 import b64encode
 from IPython.display import HTML
 
 def save_video(frames, path):

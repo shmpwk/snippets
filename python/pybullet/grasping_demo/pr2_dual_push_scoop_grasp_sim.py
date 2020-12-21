@@ -85,14 +85,14 @@ class Simulator(object):
             pb.stepSimulation()
         return tactics
 
-    def rollout(self, data_length, try_num, buffer_size, state_shape, device=torch.device('cuda')):
+    def rollout(self, data_length, try_num, buffer_size, rgb_shape, depth_shape, state_shape, device=torch.device('cuda')):
         """
         State:
         rx, ry, lx, ly, rtheta, ltheta, rw, lw
         """
         try:
             # Make replay buffer on GPU
-            buffer = SimpleBuffer(try_num, buffer_size, 8, state_shape, device) 
+            buffer = SimpleBuffer(try_num, buffer_size, rgb_shape, depth_shape, state_shape, device) 
             try_count = 0
             while (try_count != try_num):
                 tactics = self.reset()
@@ -127,13 +127,13 @@ class Simulator(object):
                             #self.rgripper.set_pose([-1.54, 0.8, -1.57]) #Success Scooping
                             self.rgripper.set_gripper_width(rw) #Close gripper
                         width, height, rgbImg, depthImg, segImg = pb.getCameraImage(
-                                360,
-                                240,
+                                128,
+                                128,
                                 viewMatrix=self.viewMatrix)
                         self.frames.append(rgbImg)
                         self.d_frames.append(depthImg)
                         state = np.array([rx, ry, lx, ly, rtheta, ltheta, rw, lw])
-                        buffer.append(state)
+                        buffer.append(np.array(rgbImg).flatten(), np.array(depthImg).flatten(), state)
                         #buffer.append(state, action, reward, mask, next_state)
 
                 else:
@@ -174,13 +174,13 @@ class Simulator(object):
                             self.rgripper.set_state([lx, ly, 0]) #rgripper move right
    
                         width, height, rgbImg, depthImg, segImg = pb.getCameraImage(
-                                360,
-                                240,
+                                128,
+                                128,
                                 viewMatrix=self.viewMatrix)
                         self.frames.append(rgbImg)
                         self.d_frames.append(depthImg)
                         state = np.array([rx, ry, lx, ly, rtheta, ltheta, rw, lw])
-                        buffer.append(state)
+                        buffer.append(np.array(rgbImg).flatten(), np.array(depthImg).flatten(), state)
                         #buffer.append(state, action, reward, mask, next_state)
                         
                 # Picking up
@@ -190,8 +190,8 @@ class Simulator(object):
                 for i in range(50):
                     pb.stepSimulation()
                     width, height, rgbImg, depthImg, segImg = pb.getCameraImage(
-                            width=360,
-                            height=240,
+                            width=128,
+                            height=128,
                             viewMatrix=self.viewMatrix)
                     #self.frames.append(rgbImg) #not need for grasp learning dataset
                     #self.d_frames.append(depthImg) #not need for grasp learning dataset
@@ -215,12 +215,14 @@ if __name__ == '__main__':
     try:
         sim
     except:
-        try_num = 10 #Simulator loop times
+        try_num = 3 #Simulator loop times
         data_length = 50
         BUFFER_SIZE = try_num * data_length #10 ** 6
+        rgb_shape = 128*128*4 
+        depth_shape = 128*128 
         state_shape = 8
         sim = Simulator()
-        buffer = sim.rollout(data_length, try_num, BUFFER_SIZE, state_shape)
+        buffer = sim.rollout(data_length, try_num, BUFFER_SIZE, rgb_shape, depth_shape, state_shape)
         buffer.save()
         pb.disconnect()
 

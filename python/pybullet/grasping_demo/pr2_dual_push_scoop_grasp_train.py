@@ -233,16 +233,6 @@ class ObservationModel(nn.Module):
         hidden = F.relu(self.dc3(hidden))
         obs = self.dc4(hidden)
         return obs
-"""
-# モデルの宣言
-state_dim = 30  # 確率的状態の次元
-rnn_hidden_dim = 200  # 決定的状態（RNNの隠れ状態）の次元
-encoder = Encoder().to(device)
-rssm = RecurrentStateSpaceModel(state_dim,
-                                   env.action_space.shape[0],
-                                   rnn_hidden_dim).to(device)
-obs_model = ObservationModel(state_dim, rnn_hidden_dim).to(device)
-"""
 
 def mkDataSet(path, data_size, data_length=50, freq=1, noise=0.00):
     """
@@ -307,15 +297,6 @@ def mkRandomBatch(train_x, train_t, train_xrgb, train_trgb, train_xdepth, train_
     
     return torch.tensor(batch_x), torch.tensor(batch_t), torch.tensor(batch_xrgb), torch.tensor(batch_trgb), torch.tensor(batch_xdepth), torch.tensor(batch_tdepth)
 
-
-#class Algorithm():
-#    def __init__(self):
-#        self.buffer = SimpleBuffer(buffer_size, 8, state_shape, devicei=torch.device('cuda'))
-#
-#    def update(self):
-#        self.learning_steps += 1
-#        states = self.buffer.get()
-
 def main(path):
     training_size = 20
     test_size = 20
@@ -368,8 +349,6 @@ def main(path):
             encoding_img_label = torch.cat([encoding_gray_label, encoding_depth_label], dim=1).reshape(batch_size, 2*128*128)
             encoded = encoder(encoding_img, output)#.reshape(hidden.size(0), -1)
 
-            #encoded = encoded.reshape()
-            #decoded = decoder(encoded)
             img_label = encoding_img_label.to(device)
             loss = criterion(encoded, img_label)
             loss.backward()

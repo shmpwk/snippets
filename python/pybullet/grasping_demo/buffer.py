@@ -6,17 +6,21 @@ import os
 import datetime
 
 class SimpleBuffer:
-    def __init__(self, data_length, buffer_size, img_shape, state_shape, device=torch.device('cuda')):
+    def __init__(self, data_length, buffer_size, rgb_shape, depth_shape, state_shape, device=torch.device('cuda')):
         # GPU上に保存するデータ．
         self.states = torch.empty((buffer_size, state_shape), dtype=torch.float, device=device)
+        self.rgb = torch.empty((buffer_size, rgb_shape), dtype=torch.float, device=device)
+        self.depth = torch.empty((buffer_size, depth_shape), dtype=torch.float, device=device)
         #self.tmp_states = torch.empty((data_length, state_shape), dtype=torch.float, device=device)
         # 次にデータを挿入するインデックス．
         self._p = 0
         self.data_length = data_length
         self.buffer_size = buffer_size
 
-    def append(self, state):
+    def append(self, rgb, depth, state):
         self.states[self._p].copy_(torch.from_numpy(state))
+        self.rgb[self._p].copy_(torch.from_numpy(rgb))
+        self.depth[self._p].copy_(torch.from_numpy(depth))
         self._p = (self._p + 1) % self.buffer_size
 
     def save(self):
@@ -26,35 +30,39 @@ class SimpleBuffer:
         }, path)
         """
         now = datetime.datetime.now()  
-        path = 'data/robot_data/robot_' + now.strftime('%Y%m%d_%H%M%S') + '.pth'
+        robot_path = 'data/robot_data/robot_' + now.strftime('%Y%m%d_%H%M%S') + '.pth'
+        rgb_path = 'data/rgb_data/rgb_' + now.strftime('%Y%m%d_%H%M%S') + '.pth'
+        depth_path = 'data/depth_data/depth_' + now.strftime('%Y%m%d_%H%M%S') + '.pth'
         # GPU save
         ## Save whole model
-        torch.save(self.states, path)
+        torch.save(self.states, robot_path)
+        torch.save(self.rgb, rgb_path)
+        torch.save(self.depth, depth_path)
         # CPU save
         #torch.save(self.model.to('cpu').state_dict(), model_path)
  
     def get(self):
         assert self._p == 0, 'Buffer needs to be full before training.'
-        return self.states
+        return self.rgb, self.depth, self.states
 
     def delete(self):
         self._p = self._p - self.data_length
  
     # path should be set by parser
-    def load(self, path):
+    def load(self, rgb_path, depth_path, robot_path):
         # learn GPU, load GPU
-        data = torch.load(path)
+        rgb = torch.load(rgb_path)
+        depth = torch.load(depth_path)
+        data = torch.load(robot_path)
         # learn CPU, load GPU
         #self.model.load_state_dict(torch.load(path, map_location=torch.device('cpu')))
-        print(data.shape)
-        return data
+        return rgb, depth, data
 
 """
 For PPO buffer
 ここでは，状態・行動・即時報酬・終了シグナル・確率密度の対数をロールアウト1回分保存することとします．このとき，状態のみ1つ分多く保存することに注意します(GAEの計算では，1ステップ先の状態価値を計算する必要があるので)．
 
 class RolloutBuffer:
-
     def __init__(self, buffer_size, state_shape, action_shape, device=torch.device('cuda')):
 
         # GPU上に保存するデータ．
