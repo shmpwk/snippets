@@ -33,6 +33,8 @@ class Simulator(object):
         print("plate ID", self.plate)
         self.rgripper = RGripper()
         self.lgripper = LGripper()
+        self.box = pb.loadURDF("dish/box.urdf")
+        print("cube ID", self.box)
         self.frames = [] #Movie buffer
         self.d_frames = [] #Movie buffer
         pb.resetDebugVisualizerCamera(0.4, 90, -75, (0.25, 0.0, 1.0))
@@ -215,7 +217,7 @@ if __name__ == '__main__':
     try:
         sim
     except:
-        try_num = 3 #Simulator loop times
+        try_num = 100 #Simulator loop times
         data_length = 50
         BUFFER_SIZE = try_num * data_length #10 ** 6
         rgb_shape = 128*128*4 
