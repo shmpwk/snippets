@@ -2,12 +2,12 @@
 # -*- coding: utf-8 -*-
 
 import moviepy.editor as mpy
-from base64 import b64encode
 from IPython.display import HTML
 
 def save_video(frames, path):
+    video_path = 'data/video/' + path
     clip = mpy.ImageSequenceClip(frames, fps=30)
-    clip.write_videofile(path, fps=30)
+    clip.write_videofile(video_path, fps=30)
 
 def play_mp4(path):
     mp4 = open(path, 'rb').read()

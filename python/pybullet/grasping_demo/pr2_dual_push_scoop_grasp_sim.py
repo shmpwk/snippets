@@ -207,7 +207,8 @@ class Simulator(object):
                 else:
                     try_count += 1 
                     print("Succeeded!!!")
-            save_video(self.frames, "sample.mp4")
+            video_name = "try_" + str(try_num) + "_length_" + str(data_length) + ".mp4"
+            save_video(self.frames, video_name)
             return buffer
 
         except KeyboardInterrupt:
@@ -217,7 +218,7 @@ if __name__ == '__main__':
     try:
         sim
     except:
-        try_num = 100 #Simulator loop times
+        try_num = 1 #Simulator loop times
         data_length = 50
         BUFFER_SIZE = try_num * data_length #10 ** 6
         rgb_shape = 128*128*4 
