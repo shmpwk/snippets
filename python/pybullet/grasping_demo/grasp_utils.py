@@ -3,7 +3,7 @@
 
 import moviepy.editor as mpy
 from IPython.display import HTML
-
+from base64 import b64encode
 def save_video(frames, path):
     video_path = 'data/video/' + path
     clip = mpy.ImageSequenceClip(frames, fps=30)
