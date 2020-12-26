@@ -3,6 +3,7 @@
 import os
 import sys
 from math import *
+import argparse
 import pybullet 
 import pybullet as pb
 import pybullet_data
@@ -207,7 +208,9 @@ class Simulator(object):
                 else:
                     try_count += 1 
                     print("Succeeded!!!")
-            video_name = "try_" + str(try_num) + "_length_" + str(data_length) + ".mp4"
+            
+            now = datetime.datetime.now()  
+            video_name = "try_" + str(try_num) + "_length_" + str(data_length) + now.strftime('_%Y%m%d_%H%M%S')+ ".mp4"
             save_video(self.frames, video_name)
             return buffer
 
@@ -218,7 +221,11 @@ if __name__ == '__main__':
     try:
         sim
     except:
-        try_num = 100 #Simulator loop times
+        parser = argparse.ArgumentParser(
+            formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+        parser.add_argument('--try_num', '-n', type=int, help='set trial number', default='3')
+        args = parser.parse_args()
+        try_num = (args.try_num)#Simulator loop times
         data_length = 50
         BUFFER_SIZE = try_num * data_length #10 ** 6
         rgb_shape = 128*128*4 
