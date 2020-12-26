@@ -218,7 +218,7 @@ if __name__ == '__main__':
     try:
         sim
     except:
-        try_num = 1 #Simulator loop times
+        try_num = 100 #Simulator loop times
         data_length = 50
         BUFFER_SIZE = try_num * data_length #10 ** 6
         rgb_shape = 128*128*4 
