@@ -24,7 +24,7 @@ from buffer import SimpleBuffer
 from grasp_utils import *
 from network import *
 
-def mkDataSet(path, data_size, data_length=50, freq=1, noise=0.00):
+def mkDataSet(path, data_size, data_length=5, freq=1, noise=0.00):
     """
     params\n
     data_size : データセットサイズ\n
@@ -41,7 +41,7 @@ def mkDataSet(path, data_size, data_length=50, freq=1, noise=0.00):
     train_trgb = []
     train_xdepth = []
     train_tdepth = []
-    buffer_size = 2500
+    buffer_size = 5000
     rgb_shape = 128*128*4
     depth_shape = 128*128*4
     state_shape = 8
@@ -57,11 +57,12 @@ def mkDataSet(path, data_size, data_length=50, freq=1, noise=0.00):
     depth_buffer = depth_buffer.to('cpu').detach().numpy().copy()
     data_buffer = data_buffer.to('cpu').detach().numpy().copy()
     print("data_size", data_size)
-    print("data_length",data_length)
+    print("data_length", data_length)
+    print("rgb buffer", rgb_buffer.shape)
     #print([rgb_buffer[i] for i in range(500)])
     #print([rgb_buffer[i][100] for i in range(data_length*data_size)])
     #print("aaaa")
-    for offset in range(data_size):
+    for offset in range(data_size): #data_size is 100? not sequence length.
         train_xrgb.append([rgb_buffer[int((offset + i) / freq)] for i in range(data_length)])
         #print([rgb_buffer[int((offset + i) / freq)] for i in range(data_length)])
         train_xdepth.append([depth_buffer[int((offset + i) / freq)] for i in range(data_length)])
@@ -75,6 +76,8 @@ def mkDataSet(path, data_size, data_length=50, freq=1, noise=0.00):
             if x != 0 :
                 print(x)
         """
+    print("train x", np.array(train_x).shape)
+    # Each list size is 50
     return train_x, train_t, train_xrgb, train_trgb, train_xdepth, train_tdepth
 
 def mkRandomBatch(train_x, train_t, train_xrgb, train_trgb, train_xdepth, train_tdepth, batch_size=10):
@@ -95,7 +98,7 @@ def mkRandomBatch(train_x, train_t, train_xrgb, train_trgb, train_xdepth, train_
         batch_trgb.append(train_trgb[idx])
         batch_xdepth.append(train_xdepth[idx])
         batch_tdepth.append(train_tdepth[idx])
-    
+    print("batch x ", np.array(batch_x).shape) 
     return torch.tensor(batch_x), torch.tensor(batch_t), torch.tensor(batch_xrgb), torch.tensor(batch_trgb), torch.tensor(batch_xdepth), torch.tensor(batch_tdepth)
 
 def main(path):
@@ -111,11 +114,11 @@ def main(path):
     test_x, test_t, test_xrgb, test_trgb,  test_xdepth, test_tdepth = mkDataSet(path, test_size)
 
     model = Predictor(8, hidden_size, 8)
-    encoder = Encoder().to(device)
+    ae = AE().to(device)
 
     criterion = nn.MSELoss()
     optimizer = SGD(model.parameters(), lr=0.01)
-    #summary(encoder, [(2, 128, 128), (8,)])
+    #summary(ae, [(2, 128, 128), (8,)])
 
     for epoch in range(epochs_num):
         # training
@@ -129,7 +132,7 @@ def main(path):
             depth = depth.reshape(batch_size, data_length, 1, 128, 128)
             depth_label = depth_label.reshape(batch_size, 1, 128, 128)
             #rgb = rgb[:,data_length-10,:3,:,:].reshape(batch_size, 3, 128, 128)
-            rgb = rgb[:,data_length-10,:,:,:].reshape(batch_size, 128, 128, 4)
+            rgb = rgb[:,data_length-1,:,:,:].reshape(batch_size, 128, 128, 4)
             rgb_label = rgb_label[:,:3,:,:].reshape(batch_size, 3, 128, 128)
             #print(rgb)
             #print("=============")
@@ -154,8 +157,6 @@ def main(path):
             plt.imshow(rgb[0,:,:,:].numpy(), vmin=0, vmax=255)
             plt.show()
             """
- 
-            
             rgb = np.transpose(rgb, (0, 3, 1, 2))
             im_gray = 0.299 * rgb[:, 0, :, :] + 0.587 * rgb[:, 1, :, :] + 0.114 * rgb[:, 2, :, :]
             im_gray = im_gray.reshape(batch_size, 1, 128, 128)
@@ -166,7 +167,6 @@ def main(path):
             encoding_depth = depth[:,data_length-1,:,:,:].reshape(batch_size, 1 , 128, 128)
             encoding_depth = encoding_depth.to(device)
             encoding_depth_label = encoding_depth.to(device)
-            
             #img show
             #img = torchvision.utils.make_grid(im_gray)
             #img = img / 2 + 0.5  # [-1,1] を [0,1] へ戻す(正規化解除)
@@ -179,8 +179,7 @@ def main(path):
             output = model(data).to(device)
             encoding_img = torch.cat([encoding_gray, encoding_depth], dim=1)
             encoding_img_label = torch.cat([encoding_gray_label, encoding_depth_label], dim=1).reshape(batch_size, 2*128*128)
-            encoded = encoder(encoding_img, output)#.reshape(hidden.size(0), -1)
-
+            estimated_robot_state, encoded = ae(encoding_img, output)#.reshape(hidden.size(0), -1)
             img_label = encoding_img_label.to(device)
             loss = criterion(encoded, img_label)
             loss.backward()
