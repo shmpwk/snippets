@@ -6,6 +6,55 @@ from torch.distributions.kl import kl_divergence
 from torch import nn
 from torch.nn import functional as F
 
+class Encoder(nn.Module):
+    def __init__(self):
+        super(Encoder, self).__init__()
+        self.conv1 = nn.Conv2d(2, 4, 3, 2, 1)
+        self.cbn1 = nn.BatchNorm2d(4)
+        self.conv2 = nn.Conv2d(4, 8, 3, 2, 1)
+        self.cbn2 = nn.BatchNorm2d(8)
+        self.conv3 = nn.Conv2d(8, 16, 3, 2, 1)
+        self.cbn3 = nn.BatchNorm2d(16)
+        self.conv4 = nn.Conv2d(16, 32, 3, 2, 1)
+        self.cbn4 = nn.BatchNorm2d(32)
+        #self.conv5 = nn.Conv2d(32, 64, 3, 2, 1)
+        #self.cbn5 = nn.BatchNorm2d(64)
+        #self.fc1 = nn.Linear(256, 64)
+        self.fc1 = nn.Linear(128, 64)
+        self.fc2 = nn.Linear(64, 16)
+        self.fc3 = nn.Linear(16, 8)
+        self.fc4 = nn.Linear(8 + 8, 8)
+        self.fc5 = nn.Linear(8, 8) 
+
+    # depth encording without concate grasp point
+    def forward(self, x, y):
+        x = F.max_pool2d(F.relu(self.conv1(x)), 2)
+        x = self.cbn1(x)
+        x = F.max_pool2d(F.relu(self.conv2(x)), 2)
+        x = self.cbn2(x)
+        x = F.relu(self.conv3(x))
+        x = self.cbn3(x)
+        x = F.relu(self.conv4(x))
+        x = self.cbn4(x)
+        #x = F.max_pool2d(F.relu(self.conv5(x)), 2)
+        #x = self.cbn5(x)
+        x = x.view(-1, self.num_flat_features(x))
+        #depth_data =depth_data.view(depth_data.shape[0], -1)
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = F.relu(self.fc3(x))
+        z = torch.cat((x, y), dim=1)
+        z = F.relu(self.fc4(z))
+        z = self.fc5(z)
+        return z
+   
+    def num_flat_features(self, x):
+        size = x.size()[1:]  # all dimensions except the batch dimension
+        num_features = 1
+        for s in size:
+            num_features *= s
+        return num_features
+
 class Conv_AE(nn.Module):
     def  __init__(self, embedding_dimension):
        super(Convolutional_AutoEncoder, self).__init__()
@@ -44,12 +93,12 @@ class Conv_AE(nn.Module):
         decoded = nn.Sigmoid()(decoded)
         return encoded, decoded   
 
-class Encoder(nn.Module):
+class AE(nn.Module):
     """
     (4, 64, 64)の画像を(1024,)のベクトルに変換するエンコーダ
     """
     def __init__(self):
-        super(Encoder, self).__init__()
+        super(AE, self).__init__()
         """
         self.cv1 = nn.Conv2d(4, 32, kernel_size=4, stride=2)
         self.cv2 = nn.Conv2d(32, 64, kernel_size=4, stride=2)
@@ -135,7 +184,8 @@ class Encoder(nn.Module):
         z = F.relu(self.fc4(z))
         z = self.fc5(z)
         #return z
-        obs = z
+        obs = z  
+        estimated_robot_state = z[:, :8] #estimated_robot_state.shape = torch.Size([2, 8]) 
         x = F.relu(self.dfc1(obs))
         x = F.relu(self.dfc2(x))
         x = F.relu(self.dfc3(x))
@@ -166,7 +216,7 @@ class Encoder(nn.Module):
         hidden = self.dcv7(hidden)
         hidden = self.dcbn7(hidden)
         embedded_obs = hidden.reshape(hidden.size(0), -1) 
-        return embedded_obs
+        return estimated_robot_state, embedded_obs
         #return hidden
    
     def num_flat_features(self, x):
