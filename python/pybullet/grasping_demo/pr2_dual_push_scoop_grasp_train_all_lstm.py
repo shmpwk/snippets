@@ -23,6 +23,7 @@ import torchvision
 from buffer import SimpleBuffer
 from grasp_utils import *
 from network import *
+from PIL import Image
 
 class MyDataset(Dataset):
     def __init__(self, path, data_size, data_length=50, freq=1, noise=0.00):
@@ -63,6 +64,28 @@ class MyDataset(Dataset):
         data_buffer = data_buffer.reshape(data_size, -1)
         print("data_size", data_size)
         print("data_length",data_length)
+        rgb = rgb_buffer.reshape(data_size, data_length, 4, 128, 128)
+        depth = depth_bufffer.reshape(data_size, data_length, 1, 128, 128)
+        data = data_buffer.reshape(data_size, data_length, 8)
+
+        """
+        make rgb + depth data
+        """
+        # depth: from 1 channel to 3 channel
+        # how to convert ?
+        gray = Image.fromarray(np.uint8(depth[0,0,:,:,:]*255))
+        print("gray shape", gray.shape)
+        # rgb: from 4 channel to 3 channel
+        rgb = rgb[:,:,:3,:,:]
+        rgb = np.transpose(rgb, (0, 1, 3, 4, 2))
+        plt.imshow(rgb[0,0,:,:,:].numpy(), vmin=0, vmax=255)
+        plt.show()
+
+        self.rgb_dataset = .reshape((data_size, data_length, 3, 128, 128))
+        self.depth_dataset = self.gray_dataset.reshape((data_size, data_length, 3, 128, 128))    
+        self.rgbd_dataset = np.concatenate([self.rgb_dataset, self.depth_dataset], 2)
+        self.robot_dataset = data
+        """
         for offset in range(data_size):
             train_xrgb.append([rgb_buffer[(offset + i)] for i in range(data_length)])
             train_xdepth.append([depth_buffer[int((offset + i) / freq)] for i in range(data_length)])
@@ -70,8 +93,10 @@ class MyDataset(Dataset):
             train_trgb.append([rgb_buffer[int((offset + data_length) / freq)]])
             train_tdepth.append([depth_buffer[int((offset + data_length) / freq)]])
             train_t.append([data_buffer[int((offset + data_length) / freq)]])
+        """
         # Each list size is 50
-        return train_x, train_t, train_xrgb, train_trgb, train_xdepth, train_tdepth
+        return self.rgbd_dataset, self.robot_dataset
+        #return train_x, train_t, train_xrgb, train_trgb, train_xdepth, train_tdepth
 
     def __len__(self):
         return self.datanum #should be dataset size / batch size
@@ -82,15 +107,12 @@ class MyDataset(Dataset):
         x.shape(6,128,128)
         c.shape(8)
         """
-        x = self.img_dataset[idx]
+        x = self.rgbd_dataset[idx]
         #y = self.grasp_dataset[idx]
         c = self.robot_dataset[idx]
         x = torch.from_numpy(x).float()
         #y = torch.from_numpy(y).float()
         c = torch.from_numpy(np.array(c)).float()
-        x = self.dd_transformer(x) 
-        #y = self.d_transformer(y) 
-        c = self.j_transformer(c) 
         return x, c
 
 def mkRandomBatch(train_x, train_t, train_xrgb, train_trgb, train_xdepth, train_tdepth, batch_size=10):
@@ -128,7 +150,7 @@ class GraspSystem():
             num_workers=2,
             drop_last=True
         )
-        depth_data, grasp_point, labels = next(iter(train_dataloader))
+        rgbd_data, grasp_point, labels = next(iter(train_dataloader))
         # Show img
         img = torchvision.utils.make_grid(depth_data)
         img = img / 2 + 0.5  # [-1,1] を [0,1] へ戻す(正規化解除)
@@ -241,7 +263,6 @@ class GraspSystem():
                 data, label, rgb, rgb_label, depth, depth_label = torch.tensor(test_x[offset:offset+batch_size]), torch.tensor(test_t[offset:offset+batch_size]), torch.tensor(test_xrgb[offset:offset+batch_size]), torch.tensor(test_trgb[offset:offset+batch_size]), torch.tensor(test_xdepth[offset:offset+batch_size]), torch.tensor(test_tdepth[offset:offset+batch_size])
                 output = model(data, None)
                 test_accuracy += np.sum(np.abs((output.data - label.data).numpy()) < 0.1)
-            
             training_accuracy /= training_size
             test_accuracy /= test_size
 
