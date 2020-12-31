@@ -8,7 +8,7 @@ import glob
 
 import numpy as np
 import matplotlib.pyplot as plt
-
+import cv2
 import torch
 from torch.distributions import Normal
 from torch.distributions.kl import kl_divergence
@@ -16,6 +16,8 @@ from torch import nn
 from torch.nn import functional as F
 from torch.nn.utils import clip_grad_norm_
 from torch.optim import SGD
+from torch.utils.data import DataLoader         
+from torch.utils.data import Dataset    
 from torch.utils.tensorboard import SummaryWriter
 from torchsummary import summary
 import torchvision
@@ -27,7 +29,7 @@ from PIL import Image
 
 class MyDataset(Dataset):
     def __init__(self, path, data_size, data_length=50, freq=1, noise=0.00):
-        self.datanum = 1600 / 4
+        self.datanum = 100/2
         """
         params\n
         data_size : データセットサイズ\n
@@ -44,7 +46,7 @@ class MyDataset(Dataset):
         train_trgb = []
         train_xdepth = []
         train_tdepth = []
-        buffer_size = 2500
+        buffer_size = 5000
         rgb_shape = 128*128*4
         depth_shape = 128*128*4
         state_shape = 8
@@ -62,10 +64,8 @@ class MyDataset(Dataset):
         rgb_buffer = rgb_buffer.reshape(data_size, -1)
         depth_buffer = depth_buffer.reshape(data_size, -1)
         data_buffer = data_buffer.reshape(data_size, -1)
-        print("data_size", data_size)
-        print("data_length",data_length)
         rgb = rgb_buffer.reshape(data_size, data_length, 4, 128, 128)
-        depth = depth_bufffer.reshape(data_size, data_length, 1, 128, 128)
+        depth = depth_buffer.reshape(data_size, data_length, 1, 128, 128)
         data = data_buffer.reshape(data_size, data_length, 8)
 
         """
@@ -73,18 +73,37 @@ class MyDataset(Dataset):
         """
         # depth: from 1 channel to 3 channel
         # how to convert ?
-        gray = Image.fromarray(np.uint8(depth[0,0,:,:,:]*255))
-        print("gray shape", gray.shape)
-        # rgb: from 4 channel to 3 channel
-        rgb = rgb[:,:,:3,:,:]
-        rgb = np.transpose(rgb, (0, 1, 3, 4, 2))
-        plt.imshow(rgb[0,0,:,:,:].numpy(), vmin=0, vmax=255)
-        plt.show()
+        #pil_depth = np.transpose(depth[0,0,0,:,:], (1,2,0))
+        gray = Image.fromarray((depth[0,0,0,:,:]*255).astype(np.uint8)).convert("RGB")
+        gray = np.array(gray)
+        plt.imshow(gray, vmin=0, vmax=255)
+        #plt.show()
 
-        self.rgb_dataset = .reshape((data_size, data_length, 3, 128, 128))
-        self.depth_dataset = self.gray_dataset.reshape((data_size, data_length, 3, 128, 128))    
-        self.rgbd_dataset = np.concatenate([self.rgb_dataset, self.depth_dataset], 2)
-        self.robot_dataset = data
+        #gray.show()
+        gray2 = (depth[0,0,0,:,:]*255)#.astype(np.uint8)
+        plt.imshow(gray2)
+        #plt.show()
+       
+        backtorgb = cv2.cvtColor((depth[0,0,0,:,:]*255), cv2.COLOR_GRAY2RGB)
+        plt.imshow(backtorgb[:,:,0])
+        #plt.show()
+        depth = (depth*255).astype(np.uint8).reshape(data_size, data_length, 128, 128, 1)
+        depth = np.tile(depth, (1,1,1,1,3))
+        plt.imshow(depth[0,0,:,:,:])
+        #plt.show()
+        
+        #rgb
+        rgb = rgb.reshape(data_size, data_length, 128, 128, 4)
+        rgb = rgb[:,:,:,:,:3]
+        plt.imshow(rgb[0,0,:,:,:3], vmin=0, vmax=255)
+        #plt.show()
+        
+        rgb = np.transpose(rgb, (0, 1, 4, 2, 3))
+        depth = np.transpose(depth, (0, 1, 4, 2, 3))
+        rgb_dataset = rgb.reshape((data_size, data_length, 3, 128, 128))
+        depth_dataset = depth.reshape((data_size, data_length, 3, 128, 128))    
+        self.rgbd_dataset = np.concatenate([rgb_dataset, depth_dataset], 2).astype(np.uint8)
+        self.robot_dataset = np.array(data, dtype=np.uint8) #.astype(np.uint8)
         """
         for offset in range(data_size):
             train_xrgb.append([rgb_buffer[(offset + i)] for i in range(data_length)])
@@ -95,11 +114,11 @@ class MyDataset(Dataset):
             train_t.append([data_buffer[int((offset + data_length) / freq)]])
         """
         # Each list size is 50
-        return self.rgbd_dataset, self.robot_dataset
+        #return self.rgbd_dataset, self.robot_dataset
         #return train_x, train_t, train_xrgb, train_trgb, train_xdepth, train_tdepth
 
     def __len__(self):
-        return self.datanum #should be dataset size / batch size
+        return int(self.datanum) #should be dataset size / batch size
 
     def __getitem__(self, idx):
         """
@@ -110,9 +129,9 @@ class MyDataset(Dataset):
         x = self.rgbd_dataset[idx]
         #y = self.grasp_dataset[idx]
         c = self.robot_dataset[idx]
-        x = torch.from_numpy(x).float()
+        x = torch.from_numpy(x).int()
         #y = torch.from_numpy(y).float()
-        c = torch.from_numpy(np.array(c)).float()
+        c = torch.from_numpy(np.array(c)).int()
         return x, c
 
 def mkRandomBatch(train_x, train_t, train_xrgb, train_trgb, train_xdepth, train_tdepth, batch_size=10):
@@ -140,36 +159,28 @@ class GraspSystem():
     def __init__(self):
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-# load depth_image and grasp_pos_rot data
+    # load depth_image and grasp_pos_rot data
     def load_data(self, datasets):
         # Data loader (https://ohke.hateblo.jp/entry/2019/12/28/230000)
         train_dataloader = torch.utils.data.DataLoader(
             datasets, 
-            batch_size=4, 
-            shuffle=True,
+            batch_size=2, 
+            shuffle=False,
             num_workers=2,
             drop_last=True
         )
-        rgbd_data, grasp_point, labels = next(iter(train_dataloader))
-        # Show img
-        img = torchvision.utils.make_grid(depth_data)
-        img = img / 2 + 0.5  # [-1,1] を [0,1] へ戻す(正規化解除)
-        npimg = img.numpy()  # torch.Tensor から numpy へ変換
-        ims = npimg #.reshape((1, 480, 480))
-        plt.imshow(np.transpose(ims[1, :, :])) # チャンネルを最後に並び変える((C,X,Y) -> (X,Y,C))
-        plt.show() #表示
-        plt.imshow(np.transpose(ims[0, :, :])) # チャンネルを最後に並び変える((C,X,Y) -> (X,Y,C))
-        plt.show() #表示
-        # Show label
-        print(' '.join('%5s' % labels[j] for j in range(2)))
-        depth_data = depth_data.to(self.device)
-        #grasp_point = grasp_point.to(self.device)
-        labels = labels.to(self.device)
-        print("depth size", depth_data.size())  # torch.Size([10, 1, 480, 480])になっているか
-        #print("point size", grasp_point.size())
-        print("judge size", labels.size())
+        rgbd_data, robot_data = next(iter(train_dataloader))
         return train_dataloader
-    
+    # make Net class model
+    def make_model(self):
+        self.model = Net()
+        self.model = self.model.to(self.device)
+        self.criterion = nn.BCEWithLogitsLoss()
+        self.train_optimizer = optim.Adam(self.model.parameters(), lr=0.001)
+        #self.train_optimizer = optim.SGD(self.model.parameters(), lr=0.001, momentum=0.9)
+        #self.test_optimizer = optim.SGD(self.model
+        #summary(self.model, [(2, 128, 128), (4,)])  
+
     def train(self, train_dataloader, loop_num):
         training_size = 50
         test_size = 50
@@ -179,11 +190,11 @@ class GraspSystem():
         batch_size = 2
         data_length = 50
         device=torch.device('cuda')
-        train_x, train_t, train_xrgb, train_trgb, train_xdepth, train_tdepth = mkDataSet(path, training_size)
-        test_x, test_t, test_xrgb, test_trgb,  test_xdepth, test_tdepth = mkDataSet(path, test_size)
+        #train_x, train_t, train_xrgb, train_trgb, train_xdepth, train_tdepth = mkDataSet(path, training_size)
+        #test_x, test_t, test_xrgb, test_trgb,  test_xdepth, test_tdepth = mkDataSet(path, test_size)
 
         model = Predictor(8, hidden_size, 8)
-        ae = AE().to(device)
+        ae = Encoder6().to(device)
 
         criterion = nn.MSELoss()
         optimizer = SGD(model.parameters(), lr=0.01)
@@ -193,16 +204,24 @@ class GraspSystem():
             # training
             running_loss = 0.0
             training_accuracy = 0.0
-            for i in range(int(training_size / batch_size)):
+            for i, data in enumerate(train_dataloader, 0):
                 optimizer.zero_grad()
-                data, label, rgb, rgb_label, depth, depth_label = mkRandomBatch(train_x, train_t, train_xrgb, train_trgb, train_xdepth, train_tdepth, batch_size)
-                rgb = rgb.reshape(batch_size, data_length, 4, 128, 128)
-                rgb_label = rgb_label.reshape(batch_size, 4, 128, 128)
-                depth = depth.reshape(batch_size, data_length, 1, 128, 128)
-                depth_label = depth_label.reshape(batch_size, 1, 128, 128)
+                #data, label, rgb, rgb_label, depth, depth_label = mkRandomBatch(train_x, train_t, train_xrgb, train_trgb, train_xdepth, train_tdepth, batch_size)
+                rgbd, robot = data 
+                rgbd = rgbd.float()
+                robot = robot.float()
+                
+                #rgbd = rgbd.reshape(batch_size, data_length, 6, 128, 128)
+                #robot = robot.reshape(
+                #rgb_label = rgb_label.reshape(batch_size, 4, 128, 128)
+                #depth = depth.reshape(batch_size, data_length, 1, 128, 128)
+                #depth_label = depth_label.reshape(batch_size, 1, 128, 128)
                 #rgb = rgb[:,data_length-10,:3,:,:].reshape(batch_size, 3, 128, 128)
-                rgb = rgb[:,data_length-10,:,:,:].reshape(batch_size, 128, 128, 4)
-                rgb_label = rgb_label[:,:3,:,:].reshape(batch_size, 3, 128, 128)
+                for j in range(data_length):
+                    rgbd = rgbd[:,j,:,:,:].reshape(batch_size, 6, 128, 128)
+                    encoded = ae(rgbd).to(device)#.reshape(hidden.size(0), -1)
+                    print(encoded.shape)
+                #rgb_label = rgb_label[:,:3,:,:].reshape(batch_size, 3, 128, 128)
                 #plt.imshow(np.transpose((rgb[0,:,:,:] / 2 + 0.5).numpy(), (1, 2, 0)))
                 #plt.imshow((rgb[0,:,:,:] / 2 + 0.5).numpy())
                 """
@@ -225,6 +244,7 @@ class GraspSystem():
                 plt.show()
                 """
      
+                """
                 rgb = np.transpose(rgb, (0, 3, 1, 2))
                 im_gray = 0.299 * rgb[:, 0, :, :] + 0.587 * rgb[:, 1, :, :] + 0.114 * rgb[:, 2, :, :]
                 im_gray = im_gray.reshape(batch_size, 1, 128, 128)
@@ -244,19 +264,21 @@ class GraspSystem():
                 #plt.imshow(ims[0,:,:])
                 #plt.imshow(np.transpose(im_gray_label[0,:,:,:], (1,2,0))) # チャンネルを最後に並び変える((C,X,Y) -> (X,Y,C))
                 #plt.show()
-                output = model(data).to(device)
-                encoding_img = torch.cat([encoding_gray, encoding_depth], dim=1)
-                encoding_img_label = torch.cat([encoding_gray_label, encoding_depth_label], dim=1).reshape(batch_size, 2*128*128)
-                encoded = ae(encoding_img, output)#.reshape(hidden.size(0), -1)
-                img_label = encoding_img_label.to(device)
-                loss = criterion(encoded, img_label)
+                """
+                output = model(robot).to(device) #data shape should be (sequence_length, batch_size, vector dim) if not batch first.
+                rgbd = rgbd.to(device)
+                #encoding_img = torch.cat([encoding_gray, encoding_depth], dim=1)
+                #encoding_img_label = torch.cat([encoding_gray_label, encoding_depth_label], dim=1).reshape(batch_size, 2*128*128)
+                #img_label = encoding_img_label.to(device)
+                loss = criterion(encoded, output)
                 loss.backward()
                 optimizer.step()
 
                 running_loss += loss.item()
-                training_accuracy += np.sum(np.abs((encoded.data.cpu() - img_label.data.cpu()).numpy()) < 0.1)
+                training_accuracy += np.sum(np.abs((encoded.data.cpu() - output.data.cpu()).numpy()) < 0.1)
 
             #test
+            """
             test_accuracy = 0.0
             for i in range(int(test_size / batch_size)):
                 offset = i * batch_size
@@ -265,16 +287,18 @@ class GraspSystem():
                 test_accuracy += np.sum(np.abs((output.data - label.data).numpy()) < 0.1)
             training_accuracy /= training_size
             test_accuracy /= test_size
+            """
 
-            print('%d loss: %.3f, training_accuracy: %.5f, test_accuracy: %.5f' % (
-                epoch + 1, running_loss, training_accuracy, test_accuracy))
+            print('%d loss: %.3f, training_accuracy: %.5f' % (
+                epoch + 1, running_loss, training_accuracy))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--data_path', '-p', type=str, help='set loading data path', default='buffer')
+    parser.add_argument('--training_size', '-n', type=int, help='set train size', default='100')
     args = parser.parse_args()
-    training_size = 50
+    #training_size = 50
     test_size = 50
     epochs_num = 50
     input_size = 1 
@@ -284,9 +308,9 @@ if __name__ == '__main__':
     device=torch.device('cuda')
     #main(args.data_path)
     gs = GraspSystem()
-    datasets = MyDataset(args.data_path, training_size)
+    datasets = MyDataset(args.data_path, args.training_size)
     train_dataloader = gs.load_data(datasets)
-    gs.make_model()
-    gs.train(train_dataloader)
-    gs.save_model()
+    #gs.make_model()
+    gs.train(train_dataloader, loop_num=100)
+    #gs.save_model()
 
