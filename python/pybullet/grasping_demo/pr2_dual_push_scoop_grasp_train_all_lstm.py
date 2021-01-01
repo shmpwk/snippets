@@ -4,6 +4,7 @@ import time
 import os
 import argparse
 import glob
+import datetime
 #import pybullet_envs  # PyBulletの環境をgymに登録する
 
 import numpy as np
@@ -15,7 +16,8 @@ from torch.distributions.kl import kl_divergence
 from torch import nn
 from torch.nn import functional as F
 from torch.nn.utils import clip_grad_norm_
-from torch.optim import SGD
+from torch import optim
+from torch.optim import *
 from torch.utils.data import DataLoader         
 from torch.utils.data import Dataset    
 from torch.utils.tensorboard import SummaryWriter
@@ -173,18 +175,36 @@ class GraspSystem():
         return train_dataloader
     # make Net class model
     def make_model(self):
-        self.model = Net()
-        self.model = self.model.to(self.device)
-        self.criterion = nn.BCEWithLogitsLoss()
-        self.train_optimizer = optim.Adam(self.model.parameters(), lr=0.001)
+        self.model = Predictor(8, hidden_size, 8).to(device)
+        self.ae = Encoder6().to(device)
+        self.criterion = nn.MSELoss()
+        self.lstm_optimizer = optim.Adam(self.model.parameters(), lr=0.001)
+        self.encoder_optimizer = optim.Adam(self.ae.parameters(), lr=0.001)
         #self.train_optimizer = optim.SGD(self.model.parameters(), lr=0.001, momentum=0.9)
         #self.test_optimizer = optim.SGD(self.model
         #summary(self.model, [(2, 128, 128), (4,)])  
+   
+    def save_model(self):
+        now = datetime.datetime.now()   
+        lstm_filename = 'data/trained_lstm_model/model_' + now.strftime('%Y%m%d_%H%M%S') + '.pth'
+        encoder_filename = 'data/trained_encoder_model/model_' + now.strftime('%Y%m%d_%H%M%S') + '.pth'
+        lstm_model_path = lstm_filename      
+        encoder_model_path = encoder_filename      
+        # GPU save   
+        ## Save only parameter   
+        torch.save(self.model.state_dict(), lstm_model_path) 
+        torch.save(self.ae.state_dict(), encoder_model_path) 
+        ## Save whole model
+        #torch.save(self.model(), lstm_model_path)   
+        #torch.save(self.ae(), encoder_model_path)   
+        # CPU save  
+        #torch.save(self.model.to('cpu').state_dict(), model_path)
+        print("Finished Saving model")    
 
     def train(self, train_dataloader, loop_num):
         training_size = 50
         test_size = 50
-        epochs_num = 50
+        epochs_num = 100
         input_size = 1 
         hidden_size = 8
         batch_size = 2
@@ -192,12 +212,6 @@ class GraspSystem():
         device=torch.device('cuda')
         #train_x, train_t, train_xrgb, train_trgb, train_xdepth, train_tdepth = mkDataSet(path, training_size)
         #test_x, test_t, test_xrgb, test_trgb,  test_xdepth, test_tdepth = mkDataSet(path, test_size)
-
-        model = Predictor(8, hidden_size, 8)
-        ae = Encoder6().to(device)
-
-        criterion = nn.MSELoss()
-        optimizer = SGD(model.parameters(), lr=0.01)
         #summary(ae, [(2, 128, 128), (8,)])
 
         for epoch in range(epochs_num):
@@ -205,11 +219,13 @@ class GraspSystem():
             running_loss = 0.0
             training_accuracy = 0.0
             for i, data in enumerate(train_dataloader, 0):
-                optimizer.zero_grad()
+                self.lstm_optimizer.zero_grad()
+                self.encoder_optimizer.zero_grad()
                 #data, label, rgb, rgb_label, depth, depth_label = mkRandomBatch(train_x, train_t, train_xrgb, train_trgb, train_xdepth, train_tdepth, batch_size)
                 rgbd, robot = data 
                 rgbd = rgbd.float()
-                robot = robot.float()
+                robot = robot.float().to(device)
+                encoded_all = torch.tensor(np.empty((batch_size, 1, 8))).to(device)
                 
                 #rgbd = rgbd.reshape(batch_size, data_length, 6, 128, 128)
                 #robot = robot.reshape(
@@ -217,62 +233,22 @@ class GraspSystem():
                 #depth = depth.reshape(batch_size, data_length, 1, 128, 128)
                 #depth_label = depth_label.reshape(batch_size, 1, 128, 128)
                 #rgb = rgb[:,data_length-10,:3,:,:].reshape(batch_size, 3, 128, 128)
+                
                 for j in range(data_length):
-                    rgbd = rgbd[:,j,:,:,:].reshape(batch_size, 6, 128, 128)
-                    encoded = ae(rgbd).to(device)#.reshape(hidden.size(0), -1)
-                    print(encoded.shape)
-                #rgb_label = rgb_label[:,:3,:,:].reshape(batch_size, 3, 128, 128)
-                #plt.imshow(np.transpose((rgb[0,:,:,:] / 2 + 0.5).numpy(), (1, 2, 0)))
-                #plt.imshow((rgb[0,:,:,:] / 2 + 0.5).numpy())
-                """
-                # showed strange img
-                rgb = rgb.reshape(batch_size, 4, 128, 128)
-                rgb = rgb[:,:3,:,:]
-                rgb=rgb.reshape(batch_size, 128, 128, 3)
-                #rgb[batch_size,128,128,:].shape
-                plt.imshow(rgb[0,:,:,:].numpy(), vmin=0, vmax=255)
-                plt.show()
-                """
-
-                """
-                # succeeded to show good rgb img
-                rgb = np.transpose(rgb, (0, 3, 1, 2))
-                rgb = rgb[:,:3,:,:]
-                rgb = np.transpose(rgb, (0, 2, 3, 1))
-                #rgb[batch_size,128,128,:].shape
-                plt.imshow(rgb[0,:,:,:].numpy(), vmin=0, vmax=255)
-                plt.show()
-                """
-     
-                """
-                rgb = np.transpose(rgb, (0, 3, 1, 2))
-                im_gray = 0.299 * rgb[:, 0, :, :] + 0.587 * rgb[:, 1, :, :] + 0.114 * rgb[:, 2, :, :]
-                im_gray = im_gray.reshape(batch_size, 1, 128, 128)
-                im_gray_label = 0.299 * rgb_label[:, 0, :, :] + 0.587 * rgb_label[:, 1, :, :] + 0.114 * rgb_label[:, 2, :, :]
-                im_gray_label = im_gray_label.reshape(batch_size, 1, 128, 128)
-                encoding_gray = im_gray.to(device)
-                encoding_gray_label = im_gray_label.to(device)
-                encoding_depth = depth[:,data_length-1,:,:,:].reshape(batch_size, 1 , 128, 128)
-                encoding_depth = encoding_depth.to(device)
-                encoding_depth_label = encoding_depth.to(device)
-                #img show
-                #img = torchvision.utils.make_grid(im_gray)
-                #img = img / 2 + 0.5  # [-1,1] を [0,1] へ戻す(正規化解除)
-                #npimg = img.numpy()  # torch.Tensor から numpy へ変換
-                #print(npimg.shape)
-                ims = im_gray[1,:,:,:].reshape((1, 128, 128))
-                #plt.imshow(ims[0,:,:])
-                #plt.imshow(np.transpose(im_gray_label[0,:,:,:], (1,2,0))) # チャンネルを最後に並び変える((C,X,Y) -> (X,Y,C))
-                #plt.show()
-                """
-                output = model(robot).to(device) #data shape should be (sequence_length, batch_size, vector dim) if not batch first.
-                rgbd = rgbd.to(device)
+                    rgbd_j = rgbd[:,j,:,:,:].reshape(batch_size, 6, 128, 128).to(device)
+                    encoded = self.ae(rgbd_j).to(device).reshape(batch_size, 1, 8) #.reshape(hidden.size(0), -1)
+                    if j==0:
+                        encoded_all = encoded
+                    else:
+                        encoded_all = torch.cat((encoded_all, encoded), axis=1)
+                output = self.model(encoded_all.to(device)).to(device) #data shape should be (sequence_length, batch_size, vector dim) if not batch first.
                 #encoding_img = torch.cat([encoding_gray, encoding_depth], dim=1)
                 #encoding_img_label = torch.cat([encoding_gray_label, encoding_depth_label], dim=1).reshape(batch_size, 2*128*128)
                 #img_label = encoding_img_label.to(device)
-                loss = criterion(encoded, output)
+                loss = self.criterion(robot, output)
                 loss.backward()
-                optimizer.step()
+                self.lstm_optimizer.step()
+                self.encoder_optimizer.step()
 
                 running_loss += loss.item()
                 training_accuracy += np.sum(np.abs((encoded.data.cpu() - output.data.cpu()).numpy()) < 0.1)
@@ -310,7 +286,7 @@ if __name__ == '__main__':
     gs = GraspSystem()
     datasets = MyDataset(args.data_path, args.training_size)
     train_dataloader = gs.load_data(datasets)
-    #gs.make_model()
+    gs.make_model()
     gs.train(train_dataloader, loop_num=100)
-    #gs.save_model()
+    gs.save_model()
 
