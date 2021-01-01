@@ -293,7 +293,7 @@ class Predictor(nn.Module):
 
     def forward(self, inputs, hidden0=None):
         output, (hidden, cell) = self.rnn(inputs, hidden0) #LSTM層
-        output = self.output_layer(output[:, -1, :]) #全結合層
+        #output = self.output_layer(output[:, -1, :]) #全結合層
         return output
 
 class ObservationModel(nn.Module):
