@@ -240,6 +240,8 @@ class Simulator(object):
                 # Picking up
                 self.rgripper.set_state([0.0, -0.5, 0.0]) 
                 self.lgripper.set_state([0.0, -0.5, 0.0])
+                self.rgripper.set_gripper_width(0) #Close gripper
+                self.lgripper.set_gripper_width(0) #Close gripper
                 contact_len = 0 #If gripper contact plate, contact_len increase
                 for i in range(50):
                     pb.stepSimulation()
