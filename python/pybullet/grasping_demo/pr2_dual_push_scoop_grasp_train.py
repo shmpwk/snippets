@@ -58,7 +58,6 @@ def mkDataSet(path, data_size, data_length=5, freq=1, noise=0.00):
     data_buffer = data_buffer.to('cpu').detach().numpy().copy()
     print("data_size", data_size)
     print("data_length", data_length)
-    print("rgb buffer", rgb_buffer.shape)
     #print([rgb_buffer[i] for i in range(500)])
     #print([rgb_buffer[i][100] for i in range(data_length*data_size)])
     #print("aaaa")
@@ -104,7 +103,7 @@ def mkRandomBatch(train_x, train_t, train_xrgb, train_trgb, train_xdepth, train_
 def main(path):
     training_size = 50
     test_size = 50
-    epochs_num = 50
+    epochs_num = 100
     input_size = 1 
     hidden_size = 8
     batch_size = 2
