@@ -118,11 +118,17 @@ class Simulator(object):
                         if len(pb.getContactPoints(bodyA=1, bodyB=3)): #Contact Rgripper and table
                             rx = 0.3-i 
                             ry = 0.5+i
-                            self.rgripper.set_state([0.3-i, 0.5+i, 0]) #rgripper up
+                            lx = -0.2-0.01*i
+                            ly = 0.1-0.02*i
+                            self.rgripper.set_state([rx, ry, 0]) #rgripper up
+                            self.lgripper.set_state([lx, ly, 0]) #lgripper up
                         else:
                             rx = 0.3+i 
                             ry = 0.5+i
-                            self.rgripper.set_state([0.3+i, 0.5+i, 0]) #rgripper down
+                            lx = -0.2+0.01*i
+                            ly = 0.1-0.02*i
+                            self.rgripper.set_state([rx, ry, 0]) #rgripper down
+                            self.lgripper.set_state([lx, ly, 0]) #lgripper up
                         if len(pb.getContactPoints(bodyA=2, bodyB=3)): #Contact Rgripper and plate
                             rtheta = pitch
                             rw = 0
