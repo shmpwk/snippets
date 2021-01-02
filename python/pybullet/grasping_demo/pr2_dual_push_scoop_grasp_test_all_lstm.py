@@ -118,125 +118,40 @@ class Simulator(object):
                 tactics = self.reset()
                 # Get target obj state
                 plate_pos = utils.get_point(self.plate) #Get target obj center position
-                if tactics==1:
-                    print("Rotational Grasping!!!")
-                    # Approaching and close right gripper
-                    pitch = np.random.rand() * pi / 8 + pi / 8 
-                    self.rgripper.set_state([-0.3, 0.5, 0]) #Success position
-                    self.lgripper.set_state([-0.2, 0.1, 0]) #Success position
-                    for i in range(data_length):
-                        pb.stepSimulation()
-                        rw = 1
-                        lw = 1
-                        lx = -0.2
-                        ly = 0.1
-                        rtheta = 0
-                        ltheta = 0
-                        if len(pb.getContactPoints(bodyA=1, bodyB=3)): #Contact Rgripper and table
-                            rx = 0.3-i 
-                            ry = 0.5+i
-                            self.rgripper.set_state([0.3-i, 0.5+i, 0]) #rgripper up
-                        else:
-                            rx = 0.3+i 
-                            ry = 0.5+i
-                            self.rgripper.set_state([0.3+i, 0.5+i, 0]) #rgripper down
-                        if len(pb.getContactPoints(bodyA=2, bodyB=3)): #Contact Rgripper and plate
-                            rtheta = pitch
-                            rw = 0
-                            self.rgripper.set_pose([-1.54, pitch, -1.57]) #Random Scooping
-                            #self.rgripper.set_pose([-1.54, 0.8, -1.57]) #Success Scooping
-                            self.rgripper.set_gripper_width(rw) #Close gripper
-                        width, height, rgbImg, depthImg, segImg = pb.getCameraImage(
-                                128,
-                                128,
-                                viewMatrix=self.viewMatrix)
-                        self.frames.append(rgbImg)
-                        self.d_frames.append(depthImg)
-                        state = np.array([rx, ry, lx, ly, rtheta, ltheta, rw, lw])
-                        buffer.append(np.array(rgbImg).flatten(), np.array(depthImg).flatten(), state)
-                        #buffer.append(state, action, reward, mask, next_state)
-
-                elif tactics==0:
-                    print("Moving Grasping!!!")
-                    pitch = np.random.rand() * pi / 8 + pi / 8 
-                    rtheta = 0
-                    ltheta = 0
-                    self.rgripper.set_state([-0.3, 0.5, 0]) #Success position
-                    self.lgripper.set_state([-0.2, 0.1, 0]) #Success position
-                    for i in range(data_length):
-                        pb.stepSimulation()
-                        plate_pos = utils.get_point(self.plate) #Get target obj center position
-                        if plate_pos[1] > -0.5:
-                            rw = 1
-                            lw = 1
-                            if len(pb.getContactPoints(bodyA=1, bodyB=3)): #Contact Rgripper and table
-                                rx = 0.3-i*0.05
-                                ry = 0.5+i*0.05
-                                lx = -0.2-i*0.01
-                                ly = 0.1-i*0.02
-                                self.rgripper.set_state([rx, ry, 0]) #rgripper up
-                                self.lgripper.set_state([lx, ly, 0]) #lgripper up
-                            else:
-                                rx = 0.3+i*0.05
-                                ry = 0.5+i*0.05
-                                lx = -0.2+i*0.01
-                                ly = 0.1-i*0.02
-                                self.rgripper.set_state([rx, ry, 0]) #rgripper down
-                                self.lgripper.set_state([lx, ly, 0]) #lgripper down
-                        elif(len(pb.getContactPoints(bodyA=2, bodyB=4))): #Contact Rgripper and plate
-                            lw = 0
-                            rx = -0.2+i*0.01
-                            ry = 0.1+i*0.02
-                            lx = -i*0.01 
-                            ly = -0.6-i*0.03
-                            self.lgripper.set_gripper_width(lw) #close gripper
-                            self.lgripper.set_state([rx, ry, 0]) #lgripper move left
-                            self.rgripper.set_state([lx, ly, 0]) #rgripper move right
-   
-                        width, height, rgbImg, depthImg, segImg = pb.getCameraImage(
-                                128,
-                                128,
-                                viewMatrix=self.viewMatrix)
-                        self.frames.append(rgbImg)
-                        self.d_frames.append(depthImg)
-                        state = np.array([rx, ry, lx, ly, rtheta, ltheta, rw, lw])
-                        buffer.append(np.array(rgbImg).flatten(), np.array(depthImg).flatten(), state)
-                        #buffer.append(state, action, reward, mask, next_state)
-                else:
-                    for i in range(data_length):
-                        pb.stepSimulation()
-                        width, height, rgbImg, depthImg, segImg = pb.getCameraImage(
-                                128,
-                                128,
-                                viewMatrix=self.viewMatrix)
-                        
-                        depth = (depthImg*255).astype(np.uint8).reshape(128, 128, 1)
-                        depth = np.tile(depth, (1,1,3))
-                        rgb = rgbImg.reshape(128,128,4)[:,:,:3]
-                        img = np.concatenate([rgb, depth], 2).astype(np.uint8)
-                        img = torch.tensor(np.transpose(img, (2, 0, 1)).reshape(1,6,128,128)).float().to(device)
-                        
-                        encoded = self.ae(img).to(device).reshape(1,1,8) #batch, time length, vector 
-                        output = self.model(encoded.to(device)).to(device)
-                        output = output[0,0,:].cpu().detach().numpy()
-                        print(output)
-                        rx = output[0]
-                        ry = output[1]
-                        lx = output[2]
-                        ly = output[3]
-                        rtheta = output[4]
-                        ltheta = output[5]
-                        rw = output[6]
-                        lw = output[7]
-                        self.rgripper.set_state([rx, ry, 0]) #rgripper 
-                        self.lgripper.set_state([lx, ly, 0]) #lgripperp
-                        self.rgripper.set_pose([-1.54, rtheta, -1.57]) #Random Scooping
-                        #self.lgripper.set_pose([-1.54, ltheta, -1.57]) #Random Scooping
+                for i in range(data_length):
+                    pb.stepSimulation()
+                    width, height, rgbImg, depthImg, segImg = pb.getCameraImage(
+                            128,
+                            128,
+                            viewMatrix=self.viewMatrix)
                     
-                        self.frames.append(rgbImg)
-                        self.d_frames.append(depthImg)
-                        state = np.array([rx, ry, lx, ly, rtheta, ltheta, rw, lw])
-                        buffer.append(np.array(rgbImg).flatten(), np.array(depthImg).flatten(), state)
+                    depth = (depthImg*255).astype(np.uint8).reshape(128, 128, 1)
+                    depth = np.tile(depth, (1,1,3))
+                    rgb = rgbImg.reshape(128,128,4)[:,:,:3]
+                    img = np.concatenate([rgb, depth], 2).astype(np.uint8)
+                    img = torch.tensor(np.transpose(img, (2, 0, 1)).reshape(1,6,128,128)).float().to(device)
+                    
+                    encoded = self.ae(img).to(device).reshape(1,1,8) #batch, time length, vector 
+                    output = self.model(encoded.to(device)).to(device)
+                    output = output[0,0,:].cpu().detach().numpy()
+                    print(output)
+                    rx = output[0]
+                    ry = output[1]
+                    lx = output[2]
+                    ly = output[3]
+                    rtheta = output[4]
+                    ltheta = output[5]
+                    rw = output[6]
+                    lw = output[7]
+                    self.rgripper.set_state([rx, ry, 0]) #rgripper 
+                    self.lgripper.set_state([lx, ly, 0]) #lgripperp
+                    self.rgripper.set_pose([-1.54, rtheta, -1.57]) #Random Scooping
+                    #self.lgripper.set_pose([-1.54, ltheta, -1.57]) #Random Scooping
+                
+                    self.frames.append(rgbImg)
+                    self.d_frames.append(depthImg)
+                    state = np.array([rx, ry, lx, ly, rtheta, ltheta, rw, lw])
+                    buffer.append(np.array(rgbImg).flatten(), np.array(depthImg).flatten(), state)
                 # Picking up
                 self.rgripper.set_state([0.0, -0.5, 0.0]) 
                 self.lgripper.set_state([0.0, -0.5, 0.0])
@@ -263,7 +178,7 @@ class Simulator(object):
                     print("Succeeded!!!")
             
             now = datetime.datetime.now()  
-            video_name = "try_" + str(try_num) + "_length_" + str(data_length) + now.strftime('_%Y%m%d_%H%M%S')+ ".mp4"
+            video_name = "test_" + str(try_num) + "_length_" + str(data_length) + now.strftime('_%Y%m%d_%H%M%S')+ ".mp4"
             save_video(self.frames, video_name)
             return buffer
 
