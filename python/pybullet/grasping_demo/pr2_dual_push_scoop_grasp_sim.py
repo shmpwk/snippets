@@ -19,8 +19,11 @@ from gripper import RGripper, LGripper
 
 
 class Simulator(object):
-    def __init__(self):
-        CLIENT = pybullet.connect(pybullet.GUI)
+    def __init__(self, enable_gui):
+        if enable_gui:
+            CLIENT = pybullet.connect(pybullet.GUI)
+        else:
+            CLIENT = pb.connect(pybullet.DIRECT)
         print("client",CLIENT)
         pb.setAdditionalSearchPath(pybullet_data.getDataPath()) #used by loadURDF
         plane = pybullet.loadURDF("plane.urdf")
@@ -36,6 +39,9 @@ class Simulator(object):
         self.lgripper = LGripper()
         self.box = pb.loadURDF("dish/box.urdf")
         print("cube ID", self.box)
+        group = 0#other objects don't collide with me
+        mask=0 # don't collide with any other object
+        pb.setCollisionFilterGroupMask(self.box,0, group, mask)
         self.frames = [] #Movie buffer
         self.d_frames = [] #Movie buffer
         pb.resetDebugVisualizerCamera(0.4, 90, -75, (0.25, 0.0, 1.0))
@@ -215,7 +221,7 @@ class Simulator(object):
                     print("Failed!!!")
                 else:
                     try_count += 1 
-                    print("Succeeded!!!")
+                    print("Succeeded!!! : ", try_count)
             
             now = datetime.datetime.now()  
             video_name = "try_" + str(try_num) + "_length_" + str(data_length) + now.strftime('_%Y%m%d_%H%M%S')+ ".mp4"
@@ -232,6 +238,7 @@ if __name__ == '__main__':
         parser = argparse.ArgumentParser(
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
         parser.add_argument('--try_num', '-n', type=int, help='set trial number', default='3')
+        parser.add_argument('--gui', '-g', type=int, help='enable gui', default='1')
         args = parser.parse_args()
         try_num = (args.try_num)#Simulator loop times
         data_length = 50
@@ -239,7 +246,7 @@ if __name__ == '__main__':
         rgb_shape = 128*128*4 
         depth_shape = 128*128 
         state_shape = 8
-        sim = Simulator()
+        sim = Simulator(args.gui)
         buffer = sim.rollout(data_length, try_num, BUFFER_SIZE, rgb_shape, depth_shape, state_shape)
         buffer.save()
         pb.disconnect()
