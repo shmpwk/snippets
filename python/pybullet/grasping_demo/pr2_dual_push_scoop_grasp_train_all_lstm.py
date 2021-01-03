@@ -213,7 +213,9 @@ class GraspSystem():
         #train_x, train_t, train_xrgb, train_trgb, train_xdepth, train_tdepth = mkDataSet(path, training_size)
         #test_x, test_t, test_xrgb, test_trgb,  test_xdepth, test_tdepth = mkDataSet(path, test_size)
         #summary(ae, [(2, 128, 128), (8,)])
-
+        now = datetime.datetime.now()
+        tensorboard_cnt = 0
+        log_dir = 'data/loss/loss_' + now.strftime('%Y%m%d_%H%M%S')
         for epoch in range(epochs_num):
             # training
             running_loss = 0.0
@@ -251,8 +253,15 @@ class GraspSystem():
                 self.encoder_optimizer.step()
 
                 running_loss += loss.item()
-                training_accuracy += np.sum(np.abs((encoded.data.cpu() - output.data.cpu()).numpy()) < 0.1)
-
+                training_accuracy += np.sum(np.abs((robot.data.cpu() - output.data.cpu()).numpy()) < 0.1)
+                # 統計を表示する
+                writer = SummaryWriter(log_dir)
+                writer.add_scalar("Loss/train", loss.item(), tensorboard_cnt) #(epoch + 1) * i)
+                if i % 100 == 99:    # 2 ミニバッチ毎に表示する
+                    print('[%d, %5d] loss: %.3f' %
+                          (epoch + 1, i + 1, running_loss / 100))
+                    running_loss = 0.0
+                tensorboard_cnt += 1
             #test
             """
             test_accuracy = 0.0
