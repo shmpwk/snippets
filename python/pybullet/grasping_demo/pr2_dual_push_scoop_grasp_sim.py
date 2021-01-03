@@ -121,16 +121,18 @@ class Simulator(object):
                         ly = 0.1
                         rtheta = 0
                         ltheta = 0
+                        print(len(pb.getContactPoints(2, 3, -1, 11)))
+                        #print(len(pb.getContactPoints(2, 4, -1, 10)))
                         if len(pb.getContactPoints(bodyA=1, bodyB=3)): #Contact Rgripper and table
-                            rx = 0.3-i 
-                            ry = 0.5+i
+                            rx = 0.3-0.5*i 
+                            ry = 0.5+0.1*i
                             lx = -0.2-0.01*i
                             ly = 0.1-0.02*i
                             self.rgripper.set_state([rx, ry, 0]) #rgripper up
                             self.lgripper.set_state([lx, ly, 0]) #lgripper up
                         else:
-                            rx = 0.3+i 
-                            ry = 0.5+i
+                            rx = 0.3+0.5*i 
+                            ry = 0.5+0.1*i
                             lx = -0.2+0.01*i
                             ly = 0.1-0.02*i
                             self.rgripper.set_state([rx, ry, 0]) #rgripper down
@@ -161,19 +163,21 @@ class Simulator(object):
                     for i in range(data_length):
                         pb.stepSimulation()
                         plate_pos = utils.get_point(self.plate) #Get target obj center position
+                        print(len(pb.getContactPoints(2, 3, -1, 11)))
+                        #print(len(pb.getContactPoints(2, 4, -1, 10)))
                         if plate_pos[1] > -0.5:
                             rw = 1
                             lw = 1
                             if len(pb.getContactPoints(bodyA=1, bodyB=3)): #Contact Rgripper and table
                                 rx = 0.3-i*0.05
-                                ry = 0.5+i*0.05
+                                ry = 0.5+i*0.02
                                 lx = -0.2-i*0.01
                                 ly = 0.1-i*0.02
                                 self.rgripper.set_state([rx, ry, 0]) #rgripper up
                                 self.lgripper.set_state([lx, ly, 0]) #lgripper up
                             else:
                                 rx = 0.3+i*0.05
-                                ry = 0.5+i*0.05
+                                ry = 0.5+i*0.02
                                 lx = -0.2+i*0.01
                                 ly = 0.1-i*0.02
                                 self.rgripper.set_state([rx, ry, 0]) #rgripper down
