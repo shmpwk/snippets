@@ -94,14 +94,14 @@ class Simulator(object):
             pb.stepSimulation()
         return tactics
 
-    def rollout(self, data_length, try_num, buffer_size, rgb_shape, depth_shape, state_shape, device=torch.device('cuda')):
+    def rollout(self, data_length, try_num, buffer_size, rgb_shape, depth_shape, state_shape, robot_state_shape, device=torch.device('cuda')):
         """
         State:
         rx, ry, lx, ly, rtheta, ltheta, rw, lw
         """
         try:
             # Make replay buffer on GPU
-            buffer = SimpleBuffer(try_num, buffer_size, rgb_shape, depth_shape, state_shape, device) 
+            buffer = SimpleBuffer(try_num, buffer_size, rgb_shape, depth_shape, state_shape, robot_state_shape, device) 
             try_count = 0
             while (try_count != try_num):
                 tactics = self.reset()
@@ -121,8 +121,12 @@ class Simulator(object):
                         ly = 0.1
                         rtheta = 0
                         ltheta = 0
-                        print(len(pb.getContactPoints(2, 3, -1, 11)))
-                        #print(len(pb.getContactPoints(2, 4, -1, 10)))
+                        r1 = len(pb.getContactPoints(2, 3, -1, 9))
+                        r2 = len(pb.getContactPoints(2, 3, -1, 10))
+                        r3 = len(pb.getContactPoints(2, 3, -1, 11))
+                        l1 = len(pb.getContactPoints(2, 4, -1, 9))
+                        l2 = len(pb.getContactPoints(2, 4, -1, 10))
+                        l3 = len(pb.getContactPoints(2, 4, -1, 11))
                         if len(pb.getContactPoints(bodyA=1, bodyB=3)): #Contact Rgripper and table
                             rx = 0.3-0.5*i 
                             ry = 0.5+0.1*i
@@ -150,7 +154,8 @@ class Simulator(object):
                         self.frames.append(rgbImg)
                         self.d_frames.append(depthImg)
                         state = np.array([rx, ry, lx, ly, rtheta, ltheta, rw, lw])
-                        buffer.append(np.array(rgbImg).flatten(), np.array(depthImg).flatten(), state)
+                        robot_state = np.array([rx, ry, lx, ly, rtheta, ltheta, rw, lw, r1, r2, r3, l1, l2, l3])
+                        buffer.append(np.array(rgbImg).flatten(), np.array(depthImg).flatten(), state, robot_state)
                         #buffer.append(state, action, reward, mask, next_state)
 
                 else:
@@ -163,8 +168,12 @@ class Simulator(object):
                     for i in range(data_length):
                         pb.stepSimulation()
                         plate_pos = utils.get_point(self.plate) #Get target obj center position
-                        print(len(pb.getContactPoints(2, 3, -1, 11)))
-                        #print(len(pb.getContactPoints(2, 4, -1, 10)))
+                        r1 = len(pb.getContactPoints(2, 3, -1, 9))
+                        r2 = len(pb.getContactPoints(2, 3, -1, 10))
+                        r3 = len(pb.getContactPoints(2, 3, -1, 11))
+                        l1 = len(pb.getContactPoints(2, 4, -1, 9))
+                        l2 = len(pb.getContactPoints(2, 4, -1, 10))
+                        l3 = len(pb.getContactPoints(2, 4, -1, 11))
                         if plate_pos[1] > -0.5:
                             rw = 1
                             lw = 1
@@ -199,7 +208,8 @@ class Simulator(object):
                         self.frames.append(rgbImg)
                         self.d_frames.append(depthImg)
                         state = np.array([rx, ry, lx, ly, rtheta, ltheta, rw, lw])
-                        buffer.append(np.array(rgbImg).flatten(), np.array(depthImg).flatten(), state)
+                        robot_state = np.array([rx, ry, lx, ly, rtheta, ltheta, rw, lw, r1, r2, r3, l1, l2, l3])
+                        buffer.append(np.array(rgbImg).flatten(), np.array(depthImg).flatten(), state, robot_state)
                         #buffer.append(state, action, reward, mask, next_state)
                         
                 # Picking up
@@ -250,8 +260,9 @@ if __name__ == '__main__':
         rgb_shape = 128*128*4 
         depth_shape = 128*128 
         state_shape = 8
+        robot_state_shape = 8 + 6
         sim = Simulator(args.gui)
-        buffer = sim.rollout(data_length, try_num, BUFFER_SIZE, rgb_shape, depth_shape, state_shape)
+        buffer = sim.rollout(data_length, try_num, BUFFER_SIZE, rgb_shape, depth_shape, state_shape, robot_state_shape)
         buffer.save()
         pb.disconnect()
 

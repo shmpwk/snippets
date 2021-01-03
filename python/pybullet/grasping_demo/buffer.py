@@ -6,9 +6,10 @@ import os
 import datetime
 
 class SimpleBuffer:
-    def __init__(self, data_length, buffer_size, rgb_shape, depth_shape, state_shape, device=torch.device('cuda')):
+    def __init__(self, data_length, buffer_size, rgb_shape, depth_shape, state_shape, robot_state_shape, device=torch.device('cuda')):
         # GPU上に保存するデータ．
         self.states = torch.empty((buffer_size, state_shape), dtype=torch.float, device=device)
+        self.robot_states = torch.empty((buffer_size, robot_state_shape), dtype=torch.float, device=device)
         self.rgb = torch.empty((buffer_size, rgb_shape), dtype=torch.float, device=device)
         self.depth = torch.empty((buffer_size, depth_shape), dtype=torch.float, device=device)
         #self.tmp_states = torch.empty((data_length, state_shape), dtype=torch.float, device=device)
@@ -17,8 +18,9 @@ class SimpleBuffer:
         self.data_length = data_length
         self.buffer_size = buffer_size
 
-    def append(self, rgb, depth, state):
+    def append(self, rgb, depth, state, robot_state):
         self.states[self._p].copy_(torch.from_numpy(state))
+        self.robot_states[self._p].copy_(torch.from_numpy(robot_state))
         self.rgb[self._p].copy_(torch.from_numpy(rgb))
         self.depth[self._p].copy_(torch.from_numpy(depth))
         self._p = (self._p + 1) % self.buffer_size
@@ -31,11 +33,13 @@ class SimpleBuffer:
         """
         now = datetime.datetime.now()  
         robot_path = 'data/robot_data/robot_' + now.strftime('%Y%m%d_%H%M%S') + '.pth'
+        robot_state_path = 'data/robot_state_data/robot_' + now.strftime('%Y%m%d_%H%M%S') + '.pth'
         rgb_path = 'data/rgb_data/rgb_' + now.strftime('%Y%m%d_%H%M%S') + '.pth'
         depth_path = 'data/depth_data/depth_' + now.strftime('%Y%m%d_%H%M%S') + '.pth'
         # GPU save
         ## Save whole model
         torch.save(self.states, robot_path)
+        torch.save(self.robot_states, robot_state_path)
         torch.save(self.rgb, rgb_path)
         torch.save(self.depth, depth_path)
         # CPU save
@@ -43,7 +47,7 @@ class SimpleBuffer:
  
     def get(self):
         assert self._p == 0, 'Buffer needs to be full before training.'
-        return self.rgb, self.depth, self.states
+        return self.rgb, self.depth, self.states, self.robot_states
 
     def delete(self):
         self._p = self._p - self.data_length
