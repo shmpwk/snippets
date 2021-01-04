@@ -54,16 +54,21 @@ class Simulator(object):
  
     def get_data(self):
         """
-        - Right and Left gripper pos, rot, width
+         Right and Left gripper pos, rot, width
         """
-        rgripper_pos = utils.get_point(self.rgripper)
-        lgripper_pos = utils.get_point(self.lgripper)
+        rx, ry, rz = self.rgripper.get_point()
+        lx, ly, lz = self.lgripper.get_point()
+        rtheta = self.rgripper.get_pose()
+        ltheta = self.lgripper.get_pose()
+        rw = self.rgripper.get_gripper_state()
+        lw = self.lgripper.get_gripper_state()
+        return rx, ry, lx, ly, rtheta, ltheta, rw, lw
 
     def load_model(self, time):
         hidden_size = 8
         device=torch.device('cuda')
         self.model = Predictor(8, hidden_size, 8).to(device)
-        self.ae = Encoder6().to(device)
+        self.ae = ImgRobotEncoder().to(device)
         lstm_filename = 'data/trained_lstm_model/model_' + str(time) + '.pth'
         encoder_filename = 'data/trained_encoder_model/model_' + str(time) + '.pth'
         # learn GPU, load GPU
@@ -91,67 +96,73 @@ class Simulator(object):
         self.lgripper.set_angle(self.lgripper.gripper, 0)
         self.rgripper.set_gripper_width(0.5, force=True)
         self.lgripper.set_gripper_width(0.5, force=True)
-        """
-        Currently, 
-        If plate is on the right side, grasping tactics is rotational grasping.
-        If plate is on the left side, grasping tactics is pushing and grasping.
-        """
-        if(plate_pos[1] < 0):
-            tactics = 0
-        else:
-            tactics = 1
-        tactics = 2
         for i in range(100):
             pb.stepSimulation()
-        return tactics
 
-    def rollout(self, data_length, try_num, buffer_size, rgb_shape, depth_shape, state_shape, device=torch.device('cuda')):
+    def rollout(self, data_length, try_num, buffer_size, rgb_shape, depth_shape, state_shape, robot_state_shape, device=torch.device('cuda')):
         """
         State:
-        rx, ry, lx, ly, rtheta, ltheta, rw, lw
+        - rx, 
+        - ry, 
+        - lx, 
+        - ly, 
+        - rtheta, 
+        - ltheta, 
+        - rw, 
+        - lw,
+        - r1: Degree of contact on the inside of the Rgripper,
+        - r2: similar to r1,
+        - r3: similar to r1,
+        - l1: Degree of contact on the inside of the Lgripper,
+        - l2: similar to l1
+        - l3: similar to l1
         """
         try:
             # Make replay buffer on GPU
-            buffer = SimpleBuffer(try_num, buffer_size, rgb_shape, depth_shape, state_shape, device) 
+            buffer = SimpleBuffer(try_num, buffer_size, rgb_shape, depth_shape, state_shape, robot_state_shape, device) 
             try_count = 0
             while (try_count != try_num):
-                tactics = self.reset()
+                self.reset()
                 # Get target obj state
                 plate_pos = utils.get_point(self.plate) #Get target obj center position
                 for i in range(data_length):
                     pb.stepSimulation()
+                    #Get current img
                     width, height, rgbImg, depthImg, segImg = pb.getCameraImage(
                             128,
                             128,
                             viewMatrix=self.viewMatrix)
-                    
+ 
                     depth = (depthImg*255).astype(np.uint8).reshape(128, 128, 1)
                     depth = np.tile(depth, (1,1,3))
                     rgb = rgbImg.reshape(128,128,4)[:,:,:3]
                     img = np.concatenate([rgb, depth], 2).astype(np.uint8)
                     img = torch.tensor(np.transpose(img, (2, 0, 1)).reshape(1,6,128,128)).float().to(device)
+                                    
+                    # Get current robot state
+                    rx, ry, lx, ly, rtheta, ltheta, rw, lw = self.get_data()
+                    r1 = len(pb.getContactPoints(2, 3, -1, 9))
+                    r2 = len(pb.getContactPoints(2, 3, -1, 10))
+                    r3 = len(pb.getContactPoints(2, 3, -1, 11))
+                    l1 = len(pb.getContactPoints(2, 4, -1, 9))
+                    l2 = len(pb.getContactPoints(2, 4, -1, 10))
+                    l3 = len(pb.getContactPoints(2, 4, -1, 11))
+                    robot_state = torch.tensor(np.array([rx, ry, lx, ly, rtheta, ltheta, rw, lw, r1, r2, r3, l1, l2, l3]).reshape(1,14)).float().to(device)
                     
-                    encoded = self.ae(img).to(device).reshape(1,1,8) #batch, time length, vector 
+                    # Inference
+                    encoded = self.ae(img, robot_state).to(device).reshape(1,1,8) #batch, time length, vector 
                     output = self.model(encoded.to(device)).to(device)
-                    output = output[0,0,:].cpu().detach().numpy()
-                    print(output)
-                    rx = output[0]
-                    ry = output[1]
-                    lx = output[2]
-                    ly = output[3]
-                    rtheta = output[4]
-                    ltheta = output[5]
-                    rw = output[6]
-                    lw = output[7]
+                    rx, ry, lx, ly, rtheta, ltheta, rw, lw = output[0,0,:].cpu().detach().numpy()
                     self.rgripper.set_state([rx, ry, 0]) #rgripper 
                     self.lgripper.set_state([lx, ly, 0]) #lgripperp
-                    self.rgripper.set_pose([-1.54, rtheta, -1.57]) #Random Scooping
-                    #self.lgripper.set_pose([-1.54, ltheta, -1.57]) #Random Scooping
+                    self.rgripper.set_pose([-1.54, rtheta, -1.57]) 
+                    #self.lgripper.set_pose([-1.54, ltheta, -1.57])
                 
                     self.frames.append(rgbImg)
                     self.d_frames.append(depthImg)
                     state = np.array([rx, ry, lx, ly, rtheta, ltheta, rw, lw])
-                    buffer.append(np.array(rgbImg).flatten(), np.array(depthImg).flatten(), state)
+                    robot_state = np.array([rx, ry, lx, ly, rtheta, ltheta, rw, lw, r1, r2, r3, l1, l2, l3])
+                    buffer.append(np.array(rgbImg).flatten(), np.array(depthImg).flatten(), state, robot_state)
                 # Picking up
                 self.rgripper.set_state([0.0, -0.5, 0.0]) 
                 self.lgripper.set_state([0.0, -0.5, 0.0])
@@ -166,7 +177,6 @@ class Simulator(object):
                             viewMatrix=self.viewMatrix)
                     #self.frames.append(rgbImg) #not need for grasp learning dataset
                     #self.d_frames.append(depthImg) #not need for grasp learning dataset
-                    #time.sleep(0.005)
                     contact_len += len(pb.getContactPoints(bodyA=1, bodyB=2)) #Judge if plate and table collision
                     contact_len += len(pb.getContactPoints(bodyA=0, bodyB=2)) #Judge if plate and table collision
                 
@@ -200,9 +210,10 @@ if __name__ == '__main__':
         rgb_shape = 128*128*4 
         depth_shape = 128*128 
         state_shape = 8
+        robot_state_shape = 8+6
         sim = Simulator()
         sim.load_model(model_path)
-        buffer = sim.rollout(data_length, try_num, BUFFER_SIZE, rgb_shape, depth_shape, state_shape)
+        buffer = sim.rollout(data_length, try_num, BUFFER_SIZE, rgb_shape, depth_shape, state_shape, robot_state_shape)
         buffer.save()
         pb.disconnect()
 
