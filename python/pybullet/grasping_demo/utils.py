@@ -20,6 +20,9 @@ def set_point(body, point):
 def quat_from_euler(euler):
     return p.getQuaternionFromEuler(euler)
 
+def euler_from_quat(quat):
+    return p.getEulerFromQuaternion(quat)
+
 def z_rotation(theta):
     return quat_from_euler([0, 0, theta])
 
