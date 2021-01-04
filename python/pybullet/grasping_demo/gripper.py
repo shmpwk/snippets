@@ -38,6 +38,22 @@ class Gripper(object):
         angle, velocity, _, _ = pb.getJointState(self.gripper, 0)
         return angle, velocity
 
+    def get_point(self):
+        point = utils.get_point(self.gripper)
+        return point
+
+    def get_pose(self):
+        quat = utils.get_quat(self.gripper)
+        euler = utils.euler_from_quat(quat)
+        _, theta, _ = euler
+        return theta
+
+    def get_gripper_state(self):
+        # To do : Which link of gripper should be an gripper angle ???
+        angle, velocity, _, _ = pb.getJointState(self.gripper, 8)
+        angle, velocity, _, _ = pb.getJointState(self.gripper, 11)
+        return angle
+
     def set_gripper_width(self, angle, force=False):
         """
         if force, angle is set regardless of the physics
@@ -62,7 +78,7 @@ class Gripper(object):
     def set_pose(self, rpy):
         quat = utils.quat_from_euler(rpy)
         utils.set_quat(self.gripper, quat)
-        
+    
     def set_angle(self, angle, force=False):
         """
         if force, angle is set regardless of the physics
