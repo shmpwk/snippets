@@ -53,14 +53,15 @@ class SimpleBuffer:
         self._p = self._p - self.data_length
  
     # path should be set by parser
-    def load(self, rgb_path, depth_path, robot_path):
+    def load(self, rgb_path, depth_path, robot_path, robot_state_path):
         # learn GPU, load GPU
         rgb = torch.load(rgb_path)
         depth = torch.load(depth_path)
         data = torch.load(robot_path)
+        robot_state = torch.load(robot_state_path)
         # learn CPU, load GPU
         #self.model.load_state_dict(torch.load(path, map_location=torch.device('cpu')))
-        return rgb, depth, data
+        return rgb, depth, data, robot_state
 
 """
 For PPO buffer
