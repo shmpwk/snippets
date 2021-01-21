@@ -173,7 +173,7 @@ class ImgRobotEncoder(nn.Module):
         self.fc0 = nn.Linear(256, 128)
         self.fc1 = nn.Linear(128, 64)
         self.fc2 = nn.Linear(64, 16)
-        self.fc3 = nn.Linear(16+14, 16)
+        self.fc3 = nn.Linear(16+16, 16)
         self.fc4 = nn.Linear(16, 8)
         self.fc5 = nn.Linear(8, 8)
 

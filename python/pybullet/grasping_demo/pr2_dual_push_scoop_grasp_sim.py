@@ -208,7 +208,7 @@ class Simulator(object):
                         self.frames.append(rgbImg)
                         self.d_frames.append(depthImg)
                         state = np.array([rx, ry, lx, ly, rtheta, ltheta, rw, lw])
-                        robot_state = np.array([rx, ry, lx, ly, rtheta, ltheta, rw, lw, r1, r2, r3, l1, l2, l3, plate[0], plate[1]])
+                        robot_state = np.array([rx, ry, lx, ly, rtheta, ltheta, rw, lw, r1, r2, r3, l1, l2, l3, plate_pos[0], plate_pos[1]])
                         buffer.append(np.array(rgbImg).flatten(), np.array(depthImg).flatten(), state, robot_state)
                         #buffer.append(state, action, reward, mask, next_state)
                         

@@ -40,7 +40,7 @@ class MyDataset(Dataset):
         rgb_shape = 128*128*4
         #depth_shape = 128*128*4
         depth_shape = 128*128*1
-        robot_state_shape = 14
+        robot_state_shape = 16
         state_shape = 8
         
         # Path
@@ -68,7 +68,7 @@ class MyDataset(Dataset):
         rgb = rgb_buffer.reshape(data_size, data_length, 4, 128, 128)
         depth = depth_buffer.reshape(data_size, data_length, 1, 128, 128)
         data = data_buffer.reshape(data_size, data_length, 8)
-        robot_state = robot_state_buffer.reshape(data_size, data_length, 14)
+        robot_state = robot_state_buffer.reshape(data_size, data_length, 16)
 
         """
         make rgb + depth data
@@ -174,7 +174,7 @@ class GraspSystem():
                 
                 for j in range(data_length):
                     rgbd_j = rgbd[:,j,:,:,:].reshape(batch_size, 6, 128, 128).to(device)
-                    robot_j = robot[:,j,:].reshape(batch_size, 14).to(device)
+                    robot_j = robot[:,j,:].reshape(batch_size, 16).to(device)
                     encoded = self.ae(rgbd_j, robot_j).to(device).reshape(batch_size, 1, 8) #.reshape(hidden.size(0), -1)
                     if j==0:
                         encoded_all = encoded
