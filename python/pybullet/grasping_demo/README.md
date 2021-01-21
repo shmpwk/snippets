@@ -32,7 +32,7 @@ optional arguments:
   --gui, -g        enable gui (default: 1)
 ```
 
-Exsample:
+Example:
 ```
 $ python pr2_dual_push_scoop_grasp_sim.py -n 100 -g 1
 ```
@@ -67,7 +67,7 @@ optional arguments:
 
 Example:
 ```
-$ python pr2_dual_push_scoop_grasp_train_imgstate2action.py -p 20210101_180627 
+$ python pr2_dual_push_scoop_grasp_test_imgstate2action.py -p 20210101_180627 
 ```
 
 ## models
