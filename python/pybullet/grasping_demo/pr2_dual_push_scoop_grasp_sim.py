@@ -154,7 +154,7 @@ class Simulator(object):
                         self.frames.append(rgbImg)
                         self.d_frames.append(depthImg)
                         state = np.array([rx, ry, lx, ly, rtheta, ltheta, rw, lw])
-                        robot_state = np.array([rx, ry, lx, ly, rtheta, ltheta, rw, lw, r1, r2, r3, l1, l2, l3])
+                        robot_state = np.array([rx, ry, lx, ly, rtheta, ltheta, rw, lw, r1, r2, r3, l1, l2, l3, plate_pos[0], plate_pos[1]])
                         buffer.append(np.array(rgbImg).flatten(), np.array(depthImg).flatten(), state, robot_state)
                         #buffer.append(state, action, reward, mask, next_state)
 
@@ -208,7 +208,7 @@ class Simulator(object):
                         self.frames.append(rgbImg)
                         self.d_frames.append(depthImg)
                         state = np.array([rx, ry, lx, ly, rtheta, ltheta, rw, lw])
-                        robot_state = np.array([rx, ry, lx, ly, rtheta, ltheta, rw, lw, r1, r2, r3, l1, l2, l3])
+                        robot_state = np.array([rx, ry, lx, ly, rtheta, ltheta, rw, lw, r1, r2, r3, l1, l2, l3, plate[0], plate[1]])
                         buffer.append(np.array(rgbImg).flatten(), np.array(depthImg).flatten(), state, robot_state)
                         #buffer.append(state, action, reward, mask, next_state)
                         
@@ -260,7 +260,7 @@ if __name__ == '__main__':
         rgb_shape = 128*128*4 
         depth_shape = 128*128 
         state_shape = 8
-        robot_state_shape = 8 + 6
+        robot_state_shape = 10 + 6
         sim = Simulator(args.gui)
         buffer = sim.rollout(data_length, try_num, BUFFER_SIZE, rgb_shape, depth_shape, state_shape, robot_state_shape)
         buffer.save()
